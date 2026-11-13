@@ -5,9 +5,6 @@ extends:
   - recommended-strict
 
 rules:
-  # Error responses are RFC 9457 problem documents.
-  operation-4xx-problem-details-rfc7807: error
-
   rule/openapi-3-1:
     subject:
       type: Root
@@ -24,6 +21,22 @@ rules:
       defined: true
       nonEmpty: true
     message: '[CT-1.b] Every operation lists the requirement IDs it serves in x-requirements.'
+
+  # Replaces the built-in operation-4xx-problem-details-rfc7807, whose older copy inside
+  # openapi-typescript misreads the allOf in ValidationProblem. Problem itself requires the
+  # RFC 9457 fields (type, title, status).
+  rule/error-media-type:
+    subject:
+      type: MediaTypesMap
+    where:
+      - subject:
+          type: Response
+          matchParentKeys: /^[45]\d\d$/
+        assertions:
+          defined: true
+    assertions:
+      enum: [application/problem+json]
+    message: '[CT-1.c] Error responses are application/problem+json (RFC 9457).'
 
   rule/error-is-problem:
     subject:

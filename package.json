@@ -11,7 +11,9 @@
     "node": ">=24.9 <25"
   },
   "scripts": {
-    "check": "npm run format:check && npm run lint:api && npm run lint && npm run typecheck",
+    "check": "npm run format:check && npm run lint:api && npm run check:drift && npm run lint && npm run typecheck",
+    "check:drift": "npm run gen:api && git diff --exit-code -- api/generated/",
+    "check:postman": "node scripts/check-postman.mjs",
     "format": "prettier --write . --ignore-path .gitignore --ignore-path .prettierignore",
     "format:check": "prettier --check . --ignore-path .gitignore --ignore-path .prettierignore",
     "lint": "eslint .",

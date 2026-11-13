@@ -21,6 +21,7 @@ and system packages or binaries the project depends on. A removal deletes the ro
 | `globals` | dev | ^17.14 (17.14.0) | root | P01 | Node global names for ESLint |
 | `@redocly/cli` | dev | ^2.78 (2.78.0) | root | P01 | Lints `api/openapi.yaml` (`lint:api`, `recommended-strict`: warnings fail) |
 | `openapi-typescript` | npx | 7.13.0 | root | P01 | `gen:api`: TypeScript types from the contract. Run through `npx` because it peers TS 5 |
+| `openapi-to-postmanv2` | npx | 6.4.3 | root | P01 | `check:postman`: imports the contract the way Postman does and counts one request per operation |
 
 Kinds: `dev` (devDependency) · `runtime` (dependency) · `npx` (pinned, never installed) ·
 `system` (apt package or binary on the server or CI runner).
@@ -137,6 +138,9 @@ only a **hash** of it with an expiry, count wrong attempts, and limit re-sends.
 10. `react-router-dom` and `langfuse` are live npm packages from older majors → never install them.
 11. Cypress 16 removed `Cypress.env()` and `cy.exec()`, and needs apt packages on a headless Linux machine.
 12. `openapi-typescript` peers TS 5 → run it with a pinned `npx`, not as a workspace devDependency.
+13. `openapi-typescript` 7 lints with its own older Redocly core and reads `redocly.yaml` → a
+    built-in rule can pass `lint:api` and still fail `gen:api` (`operation-4xx-problem-details-rfc7807`
+    misreads `allOf`). Run both after changing `redocly.yaml`.
 
 ## Sources for these claims
 
