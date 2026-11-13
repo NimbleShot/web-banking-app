@@ -2,6 +2,7 @@
   "name": "web-banking-app",
   "version": "0.0.0",
   "private": true,
+  "license": "MIT",
   "description": "A full-stack web bank: sign-up with a one-time passcode, a protected dashboard and money transfers.",
   "workspaces": [
     "api"
@@ -10,7 +11,7 @@
     "node": ">=24.9 <25"
   },
   "scripts": {
-    "check": "npm run format:check && npm run lint && npm run typecheck",
+    "check": "npm run format:check && npm run lint:api && npm run lint && npm run typecheck",
     "format": "prettier --write . --ignore-path .gitignore --ignore-path .prettierignore",
     "format:check": "prettier --check . --ignore-path .gitignore --ignore-path .prettierignore",
     "lint": "eslint .",
