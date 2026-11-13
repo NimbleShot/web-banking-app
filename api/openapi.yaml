@@ -29,6 +29,10 @@ security:
 tags:
   - name: auth
     description: Sign-up, passcode verification and login. These operations take no token.
+  - name: account
+    description: The signed-in user's account, balance and transactions.
+  - name: transfers
+    description: Sending money to another verified user.
 
 paths:
   /api/v1/auth/signup:
@@ -209,6 +213,116 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/me:
+    get:
+      tags: [account]
+      operationId: getMe
+      summary: Get my account
+      description: |
+        The signed-in user's account. The balance is set once, at sign-up, and changes only
+        through transfers.
+      x-requirements: [DB-1, DB-2, DB-3]
+      responses:
+        '200':
+          description: The account of the token's user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/transactions:
+    get:
+      tags: [account]
+      operationId: listTransactions
+      summary: List my transactions
+      description: |
+        The signed-in user's transfers, sent and received, newest first. Each amount is signed
+        from the reader's side: negative when they sent it, positive when they received it.
+      x-requirements: [DB-3, TX-4, TX-5]
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: How many transactions to return.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        '200':
+          description: The most recent transactions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionList'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/transfers:
+    post:
+      tags: [transfers]
+      operationId: createTransfer
+      summary: Send money
+      description: |
+        Moves `amount` agorot from the signed-in user to the verified user with `toEmail`. The
+        debit, the credit and the transaction record happen together or not at all, and the
+        debit succeeds only if the balance covers the amount, so concurrent transfers can't
+        overdraw. A pending or unknown recipient gets `RECIPIENT_NOT_FOUND`.
+      x-requirements: [TX-1, TX-2, TX-3, TX-4, TX-5, TX-6, TX-7, TX-8]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTransferRequest'
+      responses:
+        '201':
+          description: The transfer happened.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransferResult'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          description: The transfer was refused; nothing changed.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              examples:
+                RECIPIENT_NOT_FOUND:
+                  value:
+                    type: about:blank
+                    title: No user with that email
+                    status: 422
+                    code: RECIPIENT_NOT_FOUND
+                SELF_TRANSFER:
+                  value:
+                    type: about:blank
+                    title: You can't send money to yourself
+                    status: 422
+                    code: SELF_TRANSFER
+                INSUFFICIENT_FUNDS:
+                  value:
+                    type: about:blank
+                    title: Insufficient funds
+                    status: 422
+                    code: INSUFFICIENT_FUNDS
+        '500':
+          $ref: '#/components/responses/InternalError'
+
 components:
   securitySchemes:
     bearerAuth:
@@ -313,6 +427,80 @@ components:
           description: Seconds until the token expires.
           examples: [3600]
 
+    Agorot:
+      type: integer
+      minimum: 1
+      description: A positive amount of money in agorot (1 ₪ = 100 agorot).
+      examples: [1250]
+
+    Account:
+      type: object
+      required: [id, email, phone, balance, createdAt]
+      properties:
+        id:
+          type: string
+        email:
+          $ref: '#/components/schemas/Email'
+        phone:
+          $ref: '#/components/schemas/PhoneE164'
+        balance:
+          type: integer
+          minimum: 0
+          description: Current balance in agorot.
+          examples: [523400]
+        createdAt:
+          type: string
+          format: date-time
+
+    Transaction:
+      type: object
+      required: [id, counterpartyEmail, amount, createdAt]
+      properties:
+        id:
+          type: string
+        counterpartyEmail:
+          $ref: '#/components/schemas/Email'
+        amount:
+          type: integer
+          description: |
+            Agorot, signed from the reader's side: negative when they sent the money, positive
+            when they received it. Never zero.
+          examples: [-1250]
+        createdAt:
+          type: string
+          format: date-time
+
+    TransactionList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 50
+          items:
+            $ref: '#/components/schemas/Transaction'
+
+    CreateTransferRequest:
+      type: object
+      additionalProperties: false
+      required: [toEmail, amount]
+      properties:
+        toEmail:
+          $ref: '#/components/schemas/Email'
+        amount:
+          $ref: '#/components/schemas/Agorot'
+
+    TransferResult:
+      type: object
+      required: [transaction, balance]
+      properties:
+        transaction:
+          $ref: '#/components/schemas/Transaction'
+        balance:
+          type: integer
+          minimum: 0
+          description: The sender's balance after the transfer, in agorot.
+
     ErrorCode:
       type: string
       description: The error catalogue. Clients branch on `code`, never on `title` or `detail`.
@@ -395,6 +583,20 @@ components:
                 errors:
                   - field: email
                     message: must be a valid email address
+
+    Unauthorized:
+      description: The bearer token is missing, invalid or expired.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            UNAUTHORIZED:
+              value:
+                type: about:blank
+                title: Sign in required
+                status: 401
+                code: UNAUTHORIZED
 
     RateLimited:
       description: Too many requests from this client.
