@@ -12,8 +12,21 @@ Render · Jest + Supertest · Cypress.
 
 ## Status
 
-Design stage: the requirements and the design decisions are written; the API contract
-(`api/openapi.yaml`) comes next, then the server.
+Design stage: the requirements, the design decisions and the API contract
+([`api/openapi.yaml`](api/openapi.yaml), OpenAPI 3.1) are written; the server comes next.
+
+## Development
+
+Needs Node 24 (`.nvmrc`).
+
+```sh
+nvm use            # or any Node >=24.9 <25
+npm ci
+npm run check          # format, contract lint, generated-type drift, lint, typecheck; CI runs the same
+npm run format         # fix formatting
+npm run gen:api        # regenerate api/generated/schema.d.ts after changing the contract
+npm run check:postman  # import the contract as a Postman collection: one request per operation
+```
 
 ## Docs
 

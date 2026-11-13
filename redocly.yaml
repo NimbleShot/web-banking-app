@@ -1,0 +1,134 @@
+# Contract lint: every rule of the recommended set, with warnings promoted to errors, plus the
+# project's own conventions (docs/decisions/0003, 0004, 0006). Each custom rule's message starts
+# with the criterion it enforces.
+extends:
+  - recommended-strict
+
+rules:
+  rule/openapi-3-1:
+    subject:
+      type: Root
+      property: openapi
+    assertions:
+      pattern: /^3\.1\.\d+$/
+    message: '[CT-1.a] The contract must declare OpenAPI 3.1.'
+
+  rule/operation-requirements:
+    subject:
+      type: Operation
+      property: x-requirements
+    assertions:
+      defined: true
+      nonEmpty: true
+    message: '[CT-1.b] Every operation lists the requirement IDs it serves in x-requirements.'
+
+  # Replaces the built-in operation-4xx-problem-details-rfc7807, whose older copy inside
+  # openapi-typescript misreads the allOf in ValidationProblem. Problem itself requires the
+  # RFC 9457 fields (type, title, status).
+  rule/error-media-type:
+    subject:
+      type: MediaTypesMap
+    where:
+      - subject:
+          type: Response
+          matchParentKeys: /^[45]\d\d$/
+        assertions:
+          defined: true
+    assertions:
+      enum: [application/problem+json]
+    message: '[CT-1.c] Error responses are application/problem+json (RFC 9457).'
+
+  rule/error-is-problem:
+    subject:
+      type: MediaType
+      property: schema
+    where:
+      - subject:
+          type: Response
+          matchParentKeys: /^[45]\d\d$/
+        assertions:
+          defined: true
+    assertions:
+      ref: /^#\/components\/schemas\/(Problem|ValidationProblem)$/
+    message: '[CT-1.c] Every error response is a Problem (or ValidationProblem) from components.'
+
+  rule/bad-request-has-field-errors:
+    subject:
+      type: MediaType
+      property: schema
+    where:
+      - subject:
+          type: Response
+          filterInParentKeys: ['400']
+        assertions:
+          defined: true
+    assertions:
+      ref: /^#\/components\/schemas\/ValidationProblem$/
+    message: '[CT-1.c] A 400 response is a ValidationProblem with per-field errors.'
+
+  rule/bearer-by-default:
+    subject:
+      type: Root
+      property: security
+    assertions:
+      defined: true
+      nonEmpty: true
+    message: '[CT-1.d] The contract requires bearerAuth by default.'
+
+  rule/auth-operations-are-public:
+    subject:
+      type: Operation
+      property: security
+    where:
+      - subject:
+          type: PathItem
+          matchParentKeys: /^\/api\/v1\/auth\//
+        assertions:
+          defined: true
+    assertions:
+      defined: true
+      maxLength: 0
+    message: '[CT-1.d] Sign-up, passcode and login operations declare security: [].'
+
+  rule/other-operations-need-bearer:
+    subject:
+      type: Operation
+      property: security
+    where:
+      - subject:
+          type: PathItem
+          matchParentKeys: /^(?!\/api\/v1\/auth\/)/
+        assertions:
+          defined: true
+    assertions:
+      defined: false
+    message: '[CT-1.d] Account and transfer operations inherit bearerAuth; they never override security.'
+
+  rule/paths-under-api-v1:
+    subject:
+      type: Paths
+    assertions:
+      pattern: /^\/api\/v1\//
+    message: '[CT-1.e] Every path starts with /api/v1/.'
+
+  rule/money-is-integer-agorot:
+    subject:
+      type: Schema
+      property: type
+      filterInParentKeys: [amount, balance]
+    assertions:
+      const: integer
+    message: '[CT-1.e] Money (amount, balance) is an integer number of agorot.'
+
+  rule/no-secrets-in-responses:
+    subject:
+      type: SchemaProperties
+    where:
+      - subject:
+          type: Response
+          matchParentKeys: /^2\d\d$/
+        assertions:
+          defined: true
+    assertions:
+      notPattern: /password|passcode|otp/i
+    message: '[CT-1.e] No success response carries a password, passcode or passcode hash (or any field named like one).'

@@ -1,0 +1,33 @@
+{
+  "name": "web-banking-app",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "description": "A full-stack web bank: sign-up with a one-time passcode, a protected dashboard and money transfers.",
+  "workspaces": [
+    "api"
+  ],
+  "engines": {
+    "node": ">=24.9 <25"
+  },
+  "scripts": {
+    "check": "npm run format:check && npm run lint:api && npm run check:drift && npm run lint && npm run typecheck",
+    "check:drift": "npm run gen:api && git diff --exit-code -- api/generated/",
+    "check:postman": "node scripts/check-postman.mjs",
+    "format": "prettier --write . --ignore-path .gitignore --ignore-path .prettierignore",
+    "format:check": "prettier --check . --ignore-path .gitignore --ignore-path .prettierignore",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "lint:api": "redocly lint api/openapi.yaml",
+    "gen:api": "npx --yes openapi-typescript@7.13.0 api/openapi.yaml -o api/generated/schema.d.ts"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@redocly/cli": "^2.78.0",
+    "eslint": "^10.14.0",
+    "globals": "^17.14.0",
+    "prettier": "^3.10.1",
+    "typescript": "~6.0",
+    "typescript-eslint": "^8.72.2"
+  }
+}

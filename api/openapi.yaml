@@ -1,0 +1,633 @@
+openapi: 3.1.1
+info:
+  title: Web banking API
+  version: 1.0.0
+  description: |
+    REST API of the web banking app: sign-up with a one-time passcode sent by email, login, the
+    signed-in user's account and transactions, and transfers between users.
+
+    Conventions (docs/decisions/0006):
+    - Every path starts with `/api/v1`.
+    - Money is an integer number of agorot (1 ₪ = 100 agorot): `1250` is 12.50 ₪
+      (docs/decisions/0003).
+    - Errors are `application/problem+json` (RFC 9457) with a machine-readable `code` from the
+      `ErrorCode` enum. Validation errors add per-field `errors`.
+    - Authenticated operations take `Authorization: Bearer <JWT>`, returned by passcode
+      verification and login and valid for one hour (docs/decisions/0004). There is no logout
+      operation: the client discards the token.
+  license:
+    name: MIT
+    identifier: MIT
+
+servers:
+  - url: /
+    description: The origin that serves the API (http://localhost:3000 in development).
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: auth
+    description: Sign-up, passcode verification and login. These operations take no token.
+  - name: account
+    description: The signed-in user's account, balance and transactions.
+  - name: transfers
+    description: Sending money to another verified user.
+
+paths:
+  /api/v1/auth/signup:
+    post:
+      tags: [auth]
+      operationId: signUp
+      summary: Sign up
+      description: |
+        Creates a pending user with a random starting balance and emails a 6-digit passcode,
+        valid for 10 minutes. Signing up again with the email of a pending user replaces that
+        user and sends a new passcode. An email that belongs to a verified user is refused.
+      x-requirements: [SU-1, SU-2, SU-3, OTP-1, DB-2]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignUpRequest'
+      responses:
+        '201':
+          description: Pending user created; a passcode was sent to the email.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PendingSignUp'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '409':
+          description: The email belongs to a verified user.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              examples:
+                EMAIL_TAKEN:
+                  value:
+                    type: about:blank
+                    title: Email already registered
+                    status: 409
+                    code: EMAIL_TAKEN
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/auth/otp/verify:
+    post:
+      tags: [auth]
+      operationId: verifyOtp
+      summary: Verify the passcode
+      description: |
+        Checks the passcode of a pending user. A correct passcode verifies the user and returns
+        an access token, so sign-up ends signed in. A passcode is used up after 5 wrong tries or
+        10 minutes. Every failure gets the same `PASSCODE_INVALID`: a wrong, expired or used-up
+        passcode, an unknown email and a user who is not pending, so the answer never reveals
+        whether a sign-up exists. The client offers to send a new passcode.
+      x-requirements: [OTP-2, OTP-3, SEC-2]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyOtpRequest'
+      responses:
+        '200':
+          description: The user is verified and signed in.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessToken'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '401':
+          description: The passcode was not accepted.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              examples:
+                PASSCODE_INVALID:
+                  value:
+                    type: about:blank
+                    title: Wrong or expired passcode
+                    status: 401
+                    code: PASSCODE_INVALID
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/auth/otp/resend:
+    post:
+      tags: [auth]
+      operationId: resendOtp
+      summary: Send a new passcode
+      description: |
+        Replaces the pending user's passcode with a new one and emails it. The response is the
+        same `202` for every well-formed email, whether or not a pending user has it, so it never
+        reveals who signed up. A 60-second cooldown and a cap of 5 per hour per user are applied
+        silently: inside them, nothing is sent. Only the per-client rate limit answers `429`.
+      x-requirements: [OTP-1, SEC-2, SEC-4]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResendOtpRequest'
+      responses:
+        '202':
+          description: Accepted. If a pending user has this email, a new passcode was sent.
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/auth/login:
+    post:
+      tags: [auth]
+      operationId: login
+      summary: Log in
+      description: |
+        Exchanges email and password for an access token. An unknown email and a wrong password
+        get the same `INVALID_CREDENTIALS`. A pending user with the right password gets
+        `VERIFICATION_REQUIRED` instead of a token.
+      x-requirements: [LG-1, LG-2, SEC-2, SEC-4]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Signed in.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessToken'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '401':
+          description: Wrong email or password.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              examples:
+                INVALID_CREDENTIALS:
+                  value:
+                    type: about:blank
+                    title: Wrong email or password
+                    status: 401
+                    code: INVALID_CREDENTIALS
+        '403':
+          description: The password is right, but the email is not verified yet.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              examples:
+                VERIFICATION_REQUIRED:
+                  value:
+                    type: about:blank
+                    title: Verify your email first
+                    status: 403
+                    code: VERIFICATION_REQUIRED
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/me:
+    get:
+      tags: [account]
+      operationId: getMe
+      summary: Get my account
+      description: |
+        The signed-in user's account. The balance is set once, at sign-up, and changes only
+        through transfers.
+      x-requirements: [DB-1, DB-2, DB-3]
+      responses:
+        '200':
+          description: The account of the token's user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/transactions:
+    get:
+      tags: [account]
+      operationId: listTransactions
+      summary: List my transactions
+      description: |
+        The signed-in user's transfers, sent and received, newest first. Each amount is signed
+        from the reader's side: negative when they sent it, positive when they received it.
+      x-requirements: [DB-3, TX-4, TX-5]
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: How many transactions to return.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        '200':
+          description: The most recent transactions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionList'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/transfers:
+    post:
+      tags: [transfers]
+      operationId: createTransfer
+      summary: Send money
+      description: |
+        Moves `amount` agorot from the signed-in user to the verified user with `toEmail`. The
+        debit, the credit and the transaction record happen together or not at all, and the
+        debit succeeds only if the balance covers the amount, so concurrent transfers can't
+        overdraw. A pending or unknown recipient gets `RECIPIENT_NOT_FOUND`.
+      x-requirements: [TX-1, TX-2, TX-3, TX-4, TX-5, TX-6, TX-7, TX-8]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTransferRequest'
+      responses:
+        '201':
+          description: The transfer happened.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransferResult'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          description: The transfer was refused; nothing changed.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              examples:
+                RECIPIENT_NOT_FOUND:
+                  value:
+                    type: about:blank
+                    title: No user with that email
+                    status: 422
+                    code: RECIPIENT_NOT_FOUND
+                SELF_TRANSFER:
+                  value:
+                    type: about:blank
+                    title: You can't send money to yourself
+                    status: 422
+                    code: SELF_TRANSFER
+                INSUFFICIENT_FUNDS:
+                  value:
+                    type: about:blank
+                    title: Insufficient funds
+                    status: 422
+                    code: INSUFFICIENT_FUNDS
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: HS256 JWT whose `sub` is the user's id. Expires one hour after it is issued.
+
+  schemas:
+    Email:
+      type: string
+      format: email
+      minLength: 3
+      maxLength: 254
+      description: |
+        Case-insensitive: the server stores and compares it lowercased. Clients trim it before
+        sending; surrounding spaces fail validation.
+      examples: [dana@example.com]
+
+    Password:
+      type: string
+      format: password
+      minLength: 8
+      maxLength: 72
+      description: |
+        8 to 72 characters, and at most 72 bytes in UTF-8 (the server checks the byte length and
+        answers VALIDATION_FAILED with a `password` field error).
+
+    PhoneE164:
+      type: string
+      pattern: ^\+[1-9]\d{6,14}$
+      description: Phone number in E.164 format. The client converts local numbers.
+      examples: ['+972501234567']
+
+    Passcode:
+      type: string
+      pattern: ^\d{6}$
+      description: The 6-digit passcode from the email.
+      examples: ['042917']
+
+    SignUpRequest:
+      type: object
+      additionalProperties: false
+      required: [email, password, phone]
+      properties:
+        email:
+          $ref: '#/components/schemas/Email'
+        password:
+          $ref: '#/components/schemas/Password'
+        phone:
+          $ref: '#/components/schemas/PhoneE164'
+
+    PendingSignUp:
+      type: object
+      required: [email, status]
+      properties:
+        email:
+          $ref: '#/components/schemas/Email'
+        status:
+          type: string
+          const: pending
+
+    VerifyOtpRequest:
+      type: object
+      additionalProperties: false
+      required: [email, passcode]
+      properties:
+        email:
+          $ref: '#/components/schemas/Email'
+        passcode:
+          $ref: '#/components/schemas/Passcode'
+
+    ResendOtpRequest:
+      type: object
+      additionalProperties: false
+      required: [email]
+      properties:
+        email:
+          $ref: '#/components/schemas/Email'
+
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required: [email, password]
+      properties:
+        email:
+          $ref: '#/components/schemas/Email'
+        password:
+          type: string
+          format: password
+          minLength: 1
+          maxLength: 72
+
+    AccessToken:
+      type: object
+      required: [accessToken, tokenType, expiresIn]
+      properties:
+        accessToken:
+          type: string
+          description: 'The JWT to send as `Authorization: Bearer <accessToken>`.'
+        tokenType:
+          type: string
+          const: Bearer
+        expiresIn:
+          type: integer
+          description: Seconds until the token expires.
+          examples: [3600]
+
+    Agorot:
+      type: integer
+      minimum: 1
+      maximum: 100000000
+      description: |
+        A positive amount of money in agorot (1 ₪ = 100 agorot), at most 1,000,000 ₪ per
+        transfer.
+      examples: [1250]
+
+    Account:
+      type: object
+      required: [id, email, phone, balance, createdAt]
+      properties:
+        id:
+          type: string
+        email:
+          $ref: '#/components/schemas/Email'
+        phone:
+          $ref: '#/components/schemas/PhoneE164'
+        balance:
+          type: integer
+          minimum: 0
+          description: Current balance in agorot.
+          examples: [523400]
+        createdAt:
+          type: string
+          format: date-time
+
+    Transaction:
+      type: object
+      required: [id, counterpartyEmail, amount, createdAt]
+      properties:
+        id:
+          type: string
+        counterpartyEmail:
+          $ref: '#/components/schemas/Email'
+        amount:
+          type: integer
+          description: |
+            Agorot, signed from the reader's side: negative when they sent the money, positive
+            when they received it. Never zero.
+          examples: [-1250]
+        createdAt:
+          type: string
+          format: date-time
+
+    TransactionList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 50
+          items:
+            $ref: '#/components/schemas/Transaction'
+
+    CreateTransferRequest:
+      type: object
+      additionalProperties: false
+      required: [toEmail, amount]
+      properties:
+        toEmail:
+          $ref: '#/components/schemas/Email'
+        amount:
+          $ref: '#/components/schemas/Agorot'
+
+    TransferResult:
+      type: object
+      required: [transaction, balance]
+      properties:
+        transaction:
+          $ref: '#/components/schemas/Transaction'
+        balance:
+          type: integer
+          minimum: 0
+          description: The sender's balance after the transfer, in agorot.
+
+    ErrorCode:
+      type: string
+      description: The error catalogue. Clients branch on `code`, never on `title` or `detail`.
+      enum:
+        - VALIDATION_FAILED
+        - EMAIL_TAKEN
+        - PASSCODE_INVALID
+        - INVALID_CREDENTIALS
+        - VERIFICATION_REQUIRED
+        - UNAUTHORIZED
+        - RECIPIENT_NOT_FOUND
+        - SELF_TRANSFER
+        - INSUFFICIENT_FUNDS
+        - RATE_LIMITED
+        - INTERNAL_ERROR
+
+    Problem:
+      type: object
+      description: An RFC 9457 problem document with the app's error `code`.
+      required: [type, title, status, code]
+      properties:
+        type:
+          type: string
+          format: uri-reference
+          description: Always `about:blank`; `code` identifies the problem.
+          default: about:blank
+        title:
+          type: string
+          description: Short, human-readable summary.
+        status:
+          type: integer
+          minimum: 400
+          maximum: 599
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri-reference
+        code:
+          $ref: '#/components/schemas/ErrorCode'
+
+    FieldError:
+      type: object
+      required: [field, message]
+      properties:
+        field:
+          type: string
+          description: The request field, e.g. `email` or `amount`.
+        message:
+          type: string
+
+    ValidationProblem:
+      description: A Problem with `code` VALIDATION_FAILED and one entry per invalid field.
+      allOf:
+        - $ref: '#/components/schemas/Problem'
+        - type: object
+          required: [errors]
+          properties:
+            errors:
+              type: array
+              minItems: 1
+              items:
+                $ref: '#/components/schemas/FieldError'
+
+  responses:
+    ValidationFailed:
+      description: The request is malformed or a field is invalid.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ValidationProblem'
+          examples:
+            VALIDATION_FAILED:
+              value:
+                type: about:blank
+                title: Invalid request
+                status: 400
+                code: VALIDATION_FAILED
+                errors:
+                  - field: email
+                    message: must be a valid email address
+
+    Unauthorized:
+      description: The bearer token is missing, invalid or expired.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            UNAUTHORIZED:
+              value:
+                type: about:blank
+                title: Sign in required
+                status: 401
+                code: UNAUTHORIZED
+
+    RateLimited:
+      description: Too many requests from this client.
+      headers:
+        Retry-After:
+          description: Seconds to wait before trying again.
+          schema:
+            type: integer
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            RATE_LIMITED:
+              value:
+                type: about:blank
+                title: Too many requests
+                status: 429
+                code: RATE_LIMITED
+
+    InternalError:
+      description: Unexpected server error.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            INTERNAL_ERROR:
+              value:
+                type: about:blank
+                title: Internal server error
+                status: 500
+                code: INTERNAL_ERROR
