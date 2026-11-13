@@ -1,0 +1,6 @@
+{
+  "name": "@bank/api",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The OpenAPI contract and the types generated from it."
+}

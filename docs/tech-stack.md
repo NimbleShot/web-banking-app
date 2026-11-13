@@ -13,7 +13,14 @@ and system packages or binaries the project depends on. A removal deletes the ro
 
 | Package / tool | Kind | Version | Workspace | Phase | Why |
 |----------------|------|---------|-----------|-------|-----|
-| _none yet: the root scaffold adds the first rows_ | | | | | |
+| `typescript` | dev | ~6.0 (6.0.3) | root | P01 | Type-checks every workspace (`tsc --noEmit` in `check`). Pinned below 7 for typescript-eslint |
+| `prettier` | dev | ^3.10 (3.10.1) | root | P01 | Formatting of code, JSON and YAML; `format:check` in `check`. Markdown is left as written |
+| `eslint` | dev | ^10.14 (10.14.0) | root | P01 | Linting, flat config in `eslint.config.mjs` |
+| `@eslint/js` | dev | ^10.0 (10.0.1) | root | P01 | ESLint's recommended JavaScript rules |
+| `typescript-eslint` | dev | ^8.72 (8.72.2) | root | P01 | TypeScript parser and rules for ESLint |
+| `globals` | dev | ^17.14 (17.14.0) | root | P01 | Node global names for ESLint |
+| `@redocly/cli` | dev | ^2.78 (2.78.0) | root | P01 | Lints `api/openapi.yaml` (`lint:api`, `recommended-strict`: warnings fail) |
+| `openapi-typescript` | npx | 7.13.0 | root | P01 | `gen:api`: TypeScript types from the contract. Run through `npx` because it peers TS 5 |
 
 Kinds: `dev` (devDependency) · `runtime` (dependency) · `npx` (pinned, never installed) ·
 `system` (apt package or binary on the server or CI runner).

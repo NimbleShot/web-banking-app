@@ -1,0 +1,3 @@
+# Contract lint: every rule of the recommended set, with warnings promoted to errors.
+extends:
+  - recommended-strict

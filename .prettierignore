@@ -1,0 +1,10 @@
+# hidden directories (tool and editor state), except the GitHub config
+/.*/
+!/.github/
+
+# Markdown keeps its hand-written layout
+*.md
+
+# generated or tool-owned
+api/generated/
+package-lock.json

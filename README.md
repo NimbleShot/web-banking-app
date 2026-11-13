@@ -15,6 +15,17 @@ Render · Jest + Supertest · Cypress.
 Design stage: the requirements and the design decisions are written; the API contract
 (`api/openapi.yaml`) comes next, then the server.
 
+## Development
+
+Needs Node 24 (`.nvmrc`).
+
+```sh
+nvm use            # or any Node >=24.9 <25
+npm ci
+npm run check      # format, lint, typecheck; CI runs the same on every push
+npm run format     # fix formatting
+```
+
 ## Docs
 
 | File | What it is |
