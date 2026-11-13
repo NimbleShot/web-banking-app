@@ -1,0 +1,28 @@
+# dependencies and build output
+node_modules/
+dist/
+build/
+coverage/
+*.log
+
+# secrets: only .env.example is committed
+.env
+.env.*
+!.env.example
+secrets/
+*.pem
+*.key
+
+# course material is not published
+*.pdf
+
+# test artefacts
+test-results/
+playwright-report/
+cypress/videos/
+cypress/screenshots/
+cypress/downloads/
+
+# tools
+.vercel/
+.DS_Store
