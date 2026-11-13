@@ -84,9 +84,10 @@ paths:
       summary: Verify the passcode
       description: |
         Checks the passcode of a pending user. A correct passcode verifies the user and returns
-        an access token, so sign-up ends signed in. An unknown email, a user who is not pending
-        and a wrong passcode all get `PASSCODE_INVALID`. After 5 wrong tries, or 10 minutes, the
-        passcode is used up (`PASSCODE_EXPIRED`) and the user asks for a new one.
+        an access token, so sign-up ends signed in. A passcode is used up after 5 wrong tries or
+        10 minutes. Every failure gets the same `PASSCODE_INVALID`: a wrong, expired or used-up
+        passcode, an unknown email and a user who is not pending, so the answer never reveals
+        whether a sign-up exists. The client offers to send a new passcode.
       x-requirements: [OTP-2, OTP-3, SEC-2]
       security: []
       requestBody:
@@ -114,15 +115,9 @@ paths:
                 PASSCODE_INVALID:
                   value:
                     type: about:blank
-                    title: Wrong passcode
+                    title: Wrong or expired passcode
                     status: 401
                     code: PASSCODE_INVALID
-                PASSCODE_EXPIRED:
-                  value:
-                    type: about:blank
-                    title: Passcode expired or out of tries; request a new one
-                    status: 401
-                    code: PASSCODE_EXPIRED
         '429':
           $ref: '#/components/responses/RateLimited'
         '500':
@@ -337,7 +332,9 @@ components:
       format: email
       minLength: 3
       maxLength: 254
-      description: The server trims and lowercases it.
+      description: |
+        Case-insensitive: the server stores and compares it lowercased. Clients trim it before
+        sending; surrounding spaces fail validation.
       examples: [dana@example.com]
 
     Password:
@@ -345,7 +342,9 @@ components:
       format: password
       minLength: 8
       maxLength: 72
-      description: 8 to 72 characters.
+      description: |
+        8 to 72 characters, and at most 72 bytes in UTF-8 (the server checks the byte length and
+        answers VALIDATION_FAILED with a `password` field error).
 
     PhoneE164:
       type: string
@@ -430,7 +429,10 @@ components:
     Agorot:
       type: integer
       minimum: 1
-      description: A positive amount of money in agorot (1 ₪ = 100 agorot).
+      maximum: 100000000
+      description: |
+        A positive amount of money in agorot (1 ₪ = 100 agorot), at most 1,000,000 ₪ per
+        transfer.
       examples: [1250]
 
     Account:
@@ -508,7 +510,6 @@ components:
         - VALIDATION_FAILED
         - EMAIL_TAKEN
         - PASSCODE_INVALID
-        - PASSCODE_EXPIRED
         - INVALID_CREDENTIALS
         - VERIFICATION_REQUIRED
         - UNAUTHORIZED

@@ -38,9 +38,10 @@ export interface paths {
         /**
          * Verify the passcode
          * @description Checks the passcode of a pending user. A correct passcode verifies the user and returns
-         *     an access token, so sign-up ends signed in. An unknown email, a user who is not pending
-         *     and a wrong passcode all get `PASSCODE_INVALID`. After 5 wrong tries, or 10 minutes, the
-         *     passcode is used up (`PASSCODE_EXPIRED`) and the user asks for a new one.
+         *     an access token, so sign-up ends signed in. A passcode is used up after 5 wrong tries or
+         *     10 minutes. Every failure gets the same `PASSCODE_INVALID`: a wrong, expired or used-up
+         *     passcode, an unknown email and a user who is not pending, so the answer never reveals
+         *     whether a sign-up exists. The client offers to send a new passcode.
          */
         post: operations["verifyOtp"];
         delete?: never;
@@ -165,13 +166,15 @@ export interface components {
     schemas: {
         /**
          * Format: email
-         * @description The server trims and lowercases it.
+         * @description Case-insensitive: the server stores and compares it lowercased. Clients trim it before
+         *     sending; surrounding spaces fail validation.
          * @example dana@example.com
          */
         Email: string;
         /**
          * Format: password
-         * @description 8 to 72 characters.
+         * @description 8 to 72 characters, and at most 72 bytes in UTF-8 (the server checks the byte length and
+         *     answers VALIDATION_FAILED with a `password` field error).
          */
         Password: string;
         /**
@@ -218,7 +221,8 @@ export interface components {
             expiresIn: number;
         };
         /**
-         * @description A positive amount of money in agorot (1 ₪ = 100 agorot).
+         * @description A positive amount of money in agorot (1 ₪ = 100 agorot), at most 1,000,000 ₪ per
+         *     transfer.
          * @example 1250
          */
         Agorot: number;
@@ -262,7 +266,7 @@ export interface components {
          * @description The error catalogue. Clients branch on `code`, never on `title` or `detail`.
          * @enum {string}
          */
-        ErrorCode: "VALIDATION_FAILED" | "EMAIL_TAKEN" | "PASSCODE_INVALID" | "PASSCODE_EXPIRED" | "INVALID_CREDENTIALS" | "VERIFICATION_REQUIRED" | "UNAUTHORIZED" | "RECIPIENT_NOT_FOUND" | "SELF_TRANSFER" | "INSUFFICIENT_FUNDS" | "RATE_LIMITED" | "INTERNAL_ERROR";
+        ErrorCode: "VALIDATION_FAILED" | "EMAIL_TAKEN" | "PASSCODE_INVALID" | "INVALID_CREDENTIALS" | "VERIFICATION_REQUIRED" | "UNAUTHORIZED" | "RECIPIENT_NOT_FOUND" | "SELF_TRANSFER" | "INSUFFICIENT_FUNDS" | "RATE_LIMITED" | "INTERNAL_ERROR";
         /** @description An RFC 9457 problem document with the app's error `code`. */
         Problem: {
             /**

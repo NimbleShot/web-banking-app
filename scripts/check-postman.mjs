@@ -1,8 +1,9 @@
 // Imports the contract the way Postman does (openapi-to-postmanv2) and checks that the
 // collection holds exactly one request per operation. Exits 1 on a failed conversion or a
-// count mismatch. Plain JavaScript: tsc checks it once @types/node arrives with the server.
+// count mismatch. Plain JavaScript, outside tsc's include list until @types/node arrives with
+// the server; the JSDoc types document the shapes it reads.
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -25,6 +26,25 @@ function countRequests(items) {
   );
 }
 
+/**
+ * Runs a command that must write `outputFile`; on failure prints the command's own output.
+ * @param {string[]} args arguments to npx
+ * @param {string} outputFile
+ */
+function npx(args, outputFile) {
+  try {
+    execFileSync('npx', args, { encoding: 'utf8', stdio: 'pipe' });
+  } catch (error) {
+    const { stdout = '', stderr = '' } = /** @type {{ stdout?: string, stderr?: string }} */ (
+      error
+    );
+    throw new Error(`npx ${args.join(' ')} failed\n${stdout}${stderr}`, { cause: error });
+  }
+  if (!existsSync(outputFile)) {
+    throw new Error(`npx ${args.join(' ')} wrote no ${outputFile}`);
+  }
+}
+
 /** @param {string} file */
 function readJson(file) {
   return JSON.parse(readFileSync(file, 'utf8'));
@@ -35,12 +55,8 @@ try {
   const bundled = join(dir, 'openapi.json');
   const collectionFile = join(dir, 'collection.json');
 
-  execFileSync('npx', ['redocly', 'bundle', CONTRACT, '--ext', 'json', '-o', bundled], {
-    stdio: 'ignore',
-  });
-  execFileSync('npx', ['--yes', CONVERTER, '-s', CONTRACT, '-o', collectionFile], {
-    stdio: 'ignore',
-  });
+  npx(['redocly', 'bundle', CONTRACT, '--ext', 'json', '-o', bundled], bundled);
+  npx(['--yes', CONVERTER, '-s', CONTRACT, '-o', collectionFile], collectionFile);
 
   /** @type {{ paths: Record<string, Record<string, unknown>> }} */
   const contract = readJson(bundled);
@@ -60,6 +76,9 @@ try {
       `check:postman: ${CONVERTER} imported ${requests} requests = ${operations} operations`,
     );
   }
+} catch (error) {
+  console.error(`check:postman: ${error instanceof Error ? error.message : error}`);
+  process.exitCode = 1;
 } finally {
   rmSync(dir, { recursive: true, force: true });
 }

@@ -130,5 +130,5 @@ rules:
         assertions:
           defined: true
     assertions:
-      disallowed: [password, passcode, passcodeHash]
-    message: '[CT-1.e] No success response carries a password, passcode or passcode hash.'
+      notPattern: /password|passcode|otp/i
+    message: '[CT-1.e] No success response carries a password, passcode or passcode hash (or any field named like one).'
