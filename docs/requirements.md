@@ -49,6 +49,11 @@ Fixed by the worksheet: **React** front end, **Node.js** server, **MongoDB**. UI
 | LG-1 | Sign in with correct email and password | Redirect to dashboard |
 | LG-2 | Wrong credentials → error message | Generic message. It doesn't reveal whether the email exists |
 
+### Password reset (added; not in the worksheet)
+| ID | Requirement | Acceptance check |
+|----|-------------|------------------|
+| PW-1 | A verified user who forgot their password sets a new one with a 6-digit passcode sent to their email | The new password logs in and the old one doesn't. Asking for a code gives the same answer whether or not the email is registered |
+
 ### Transaction (§5)
 | ID | Requirement | Acceptance check |
 |----|-------------|------------------|
@@ -124,8 +129,8 @@ The design choices the worksheet leaves open, and where each is settled.
 | # | Decision | Settled in |
 |---|----------|------------|
 | 1 | Verify by SMS or by email? (Email is free and testable; a Twilio trial texts only verified numbers) | [ADR-0001](decisions/0001-otp-by-email-and-passcode-rules.md) |
-| 2 | When does the user record exist: unverified user, or separate pending sign-up? What happens to sign-ups never verified? | [ADR-0002](decisions/0002-pending-users-and-unique-email.md) |
-| 3 | What stops a duplicate email: a pre-check, a unique index, or both? What happens when two sign-ups race? | [ADR-0002](decisions/0002-pending-users-and-unique-email.md) |
+| 2 | When does the user record exist: unverified user, or separate pending sign-up? What happens to sign-ups never verified? | [ADR-0002](decisions/0002-pending-users-and-unique-email.md), superseded in part by [ADR-0007](decisions/0007-sign-up-sets-credentials-at-verification.md) |
+| 3 | What stops a duplicate email: a pre-check, a unique index, or both? What happens when two sign-ups race? | [ADR-0002](decisions/0002-pending-users-and-unique-email.md), superseded in part by [ADR-0007](decisions/0007-sign-up-sets-credentials-at-verification.md) |
 | 4 | How is money represented (float, integer minor units, Decimal128)? What range is the random balance? | [ADR-0003](decisions/0003-money-in-agorot-one-record-per-transfer.md) |
 | 5 | Transfer records: one per transfer read by both sides, or one per side? How is it made all-or-nothing? | [ADR-0003](decisions/0003-money-in-agorot-one-record-per-transfer.md) |
 | 6 | Where does the browser keep the login: a header token in memory/localStorage, or an httpOnly cookie (cross-site between `vercel.app` and `onrender.com`)? | [ADR-0004](decisions/0004-bearer-jwt-in-sessionstorage-client-logout.md) |

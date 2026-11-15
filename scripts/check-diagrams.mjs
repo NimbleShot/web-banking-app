@@ -31,11 +31,15 @@ const CHROME = process.env.PUPPETEER_EXECUTABLE_PATH ?? '/usr/bin/google-chrome'
 const DIAGRAMS = {
   'signup-passcode.md': {
     codes: ['VALIDATION_FAILED', 'EMAIL_TAKEN', 'PASSCODE_INVALID'],
-    text: ['expired', 'POST /api/v1/auth/otp/resend'],
+    text: ['expired', 'POST /api/v1/auth/otp/resend', 'already pending'],
   },
   'login.md': {
-    codes: ['INVALID_CREDENTIALS', 'VERIFICATION_REQUIRED'],
-    text: [],
+    codes: ['INVALID_CREDENTIALS'],
+    text: ['pending'],
+  },
+  'password-reset.md': {
+    codes: ['PASSCODE_INVALID', 'RATE_LIMITED'],
+    text: ['expired', 'POST /api/v1/auth/password/forgot', 'POST /api/v1/auth/password/reset'],
   },
   'transfer.md': {
     codes: ['RECIPIENT_NOT_FOUND', 'INSUFFICIENT_FUNDS'],

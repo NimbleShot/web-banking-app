@@ -88,7 +88,7 @@ rules:
     assertions:
       defined: true
       maxLength: 0
-    message: '[CT-1.d] Sign-up, passcode and login operations declare security: [].'
+    message: '[CT-1.d] Sign-up, passcode, login and password-reset operations declare security: [].'
 
   rule/other-operations-need-bearer:
     subject:

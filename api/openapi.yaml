@@ -3,8 +3,8 @@ info:
   title: Web banking API
   version: 1.0.0
   description: |
-    REST API of the web banking app: sign-up with a one-time passcode sent by email, login, the
-    signed-in user's account and transactions, and transfers between users.
+    REST API of the web banking app: sign-up with a one-time passcode sent by email, login,
+    password reset, the signed-in user's account and transactions, and transfers between users.
 
     Conventions (docs/decisions/0006):
     - Every path starts with `/api/v1`.
@@ -28,7 +28,7 @@ security:
 
 tags:
   - name: auth
-    description: Sign-up, passcode verification and login. These operations take no token.
+    description: Sign-up, passcode verification, login and password reset. These operations take no token.
   - name: account
     description: The signed-in user's account, balance and transactions.
   - name: transfers
@@ -41,10 +41,13 @@ paths:
       operationId: signUp
       summary: Sign up
       description: |
-        Creates a pending user with a random starting balance and emails a 6-digit passcode,
-        valid for 10 minutes. Signing up again with the email of a pending user replaces that
-        user and sends a new passcode. An email that belongs to a verified user is refused.
-      x-requirements: [SU-1, SU-2, SU-3, OTP-1, DB-2]
+        Validates the email, password and phone, records a pending sign-up for the email and
+        emails a 6-digit passcode, valid for 10 minutes. Nothing else is saved yet: the password
+        and phone are saved by `verifyOtp`, which receives them with the passcode, so only the
+        holder of the inbox chooses the password (docs/decisions/0007). Signing up again with a
+        pending email is a resend (`resendOtp`'s silent cooldown and cap) and gets the same
+        answer. An email that belongs to a verified user is refused.
+      x-requirements: [SU-1, SU-2, SU-3, OTP-1]
       security: []
       requestBody:
         required: true
@@ -53,8 +56,8 @@ paths:
             schema:
               $ref: '#/components/schemas/SignUpRequest'
       responses:
-        '201':
-          description: Pending user created; a passcode was sent to the email.
+        '202':
+          description: Accepted. A pending sign-up exists for the email and a passcode was sent, unless the resend cooldown or cap held it back.
           content:
             application/json:
               schema:
@@ -83,12 +86,14 @@ paths:
       operationId: verifyOtp
       summary: Verify the passcode
       description: |
-        Checks the passcode of a pending user. A correct passcode verifies the user and returns
-        an access token, so sign-up ends signed in. A passcode is used up after 5 wrong tries or
-        10 minutes. Every failure gets the same `PASSCODE_INVALID`: a wrong, expired or used-up
-        passcode, an unknown email and a user who is not pending, so the answer never reveals
-        whether a sign-up exists. The client offers to send a new passcode.
-      x-requirements: [OTP-2, OTP-3, SEC-2]
+        Checks the passcode of a pending sign-up. The request repeats the password and phone
+        from the sign-up form; a correct passcode creates the verified user with them and a
+        random starting balance, and returns an access token, so sign-up ends signed in. A
+        passcode is used up after 5 wrong tries or 10 minutes. Every failure gets the same
+        `PASSCODE_INVALID`: a wrong, expired or used-up passcode, an unknown email and an email
+        that is not pending, so the answer never reveals whether a sign-up exists. The client
+        offers to send a new passcode.
+      x-requirements: [OTP-2, OTP-3, DB-2, SEC-2]
       security: []
       requestBody:
         required: true
@@ -129,8 +134,8 @@ paths:
       operationId: resendOtp
       summary: Send a new passcode
       description: |
-        Replaces the pending user's passcode with a new one and emails it. The response is the
-        same `202` for every well-formed email, whether or not a pending user has it, so it never
+        Replaces the pending sign-up's passcode with a new one and emails it. The response is the
+        same `202` for every well-formed email, whether or not a sign-up is pending, so it never
         reveals who signed up. A 60-second cooldown and a cap of 5 per hour per user are applied
         silently: inside them, nothing is sent. Only the per-client rate limit answers `429`.
       x-requirements: [OTP-1, SEC-2, SEC-4]
@@ -143,7 +148,7 @@ paths:
               $ref: '#/components/schemas/ResendOtpRequest'
       responses:
         '202':
-          description: Accepted. If a pending user has this email, a new passcode was sent.
+          description: Accepted. If a sign-up is pending for this email, a new passcode was sent.
         '400':
           $ref: '#/components/responses/ValidationFailed'
         '429':
@@ -157,9 +162,9 @@ paths:
       operationId: login
       summary: Log in
       description: |
-        Exchanges email and password for an access token. An unknown email and a wrong password
-        get the same `INVALID_CREDENTIALS`. A pending user with the right password gets
-        `VERIFICATION_REQUIRED` instead of a token.
+        Exchanges email and password for an access token. An unknown email, a wrong password and
+        an email whose sign-up is still pending (it has no password yet) get the same
+        `INVALID_CREDENTIALS`.
       x-requirements: [LG-1, LG-2, SEC-2, SEC-4]
       security: []
       requestBody:
@@ -190,19 +195,76 @@ paths:
                     title: Wrong email or password
                     status: 401
                     code: INVALID_CREDENTIALS
-        '403':
-          description: The password is right, but the email is not verified yet.
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/auth/password/forgot:
+    post:
+      tags: [auth]
+      operationId: requestPasswordReset
+      summary: Ask for a password reset passcode
+      description: |
+        Emails a 6-digit reset passcode, valid for 10 minutes, if a verified user has this email
+        (docs/decisions/0008). The response is the same `202` for every well-formed email, so it
+        never reveals who is registered. The 60-second cooldown and the cap of 5 per hour per
+        user are applied silently, as for `resendOtp`. Only the per-client rate limit answers
+        `429`.
+      x-requirements: [PW-1, SEC-2, SEC-4]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetRequest'
+      responses:
+        '202':
+          description: Accepted. If a verified user has this email, a reset passcode was sent.
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/auth/password/reset:
+    post:
+      tags: [auth]
+      operationId: resetPassword
+      summary: Set a new password with the reset passcode
+      description: |
+        A correct reset passcode replaces the user's password and is used up; the user then logs
+        in. Tokens issued before the reset stay valid until they expire. A passcode is used up
+        after 5 wrong tries or 10 minutes. Every failure gets the same `PASSCODE_INVALID`, as in
+        `verifyOtp`.
+      x-requirements: [PW-1, SEC-2]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetPasswordRequest'
+      responses:
+        '204':
+          description: The password was changed.
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '401':
+          description: The passcode was not accepted.
           content:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
               examples:
-                VERIFICATION_REQUIRED:
+                PASSCODE_INVALID:
                   value:
                     type: about:blank
-                    title: Verify your email first
-                    status: 403
-                    code: VERIFICATION_REQUIRED
+                    title: Wrong or expired passcode
+                    status: 401
+                    code: PASSCODE_INVALID
         '429':
           $ref: '#/components/responses/RateLimited'
         '500':
@@ -214,8 +276,8 @@ paths:
       operationId: getMe
       summary: Get my account
       description: |
-        The signed-in user's account. The balance is set once, at sign-up, and changes only
-        through transfers.
+        The signed-in user's account. The balance is set once, when the sign-up is verified, and
+        changes only through transfers.
       x-requirements: [DB-1, DB-2, DB-3]
       responses:
         '200':
@@ -333,8 +395,8 @@ components:
       minLength: 3
       maxLength: 254
       description: |
-        Case-insensitive: the server stores and compares it lowercased. Clients trim it before
-        sending; surrounding spaces fail validation.
+        Case-insensitive: the server stores and compares it lowercased. It is not trimmed:
+        surrounding spaces fail validation (docs/decisions/0007).
       examples: [dana@example.com]
 
     Password:
@@ -383,12 +445,16 @@ components:
     VerifyOtpRequest:
       type: object
       additionalProperties: false
-      required: [email, passcode]
+      required: [email, passcode, password, phone]
       properties:
         email:
           $ref: '#/components/schemas/Email'
         passcode:
           $ref: '#/components/schemas/Passcode'
+        password:
+          $ref: '#/components/schemas/Password'
+        phone:
+          $ref: '#/components/schemas/PhoneE164'
 
     ResendOtpRequest:
       type: object
@@ -397,6 +463,26 @@ components:
       properties:
         email:
           $ref: '#/components/schemas/Email'
+
+    PasswordResetRequest:
+      type: object
+      additionalProperties: false
+      required: [email]
+      properties:
+        email:
+          $ref: '#/components/schemas/Email'
+
+    ResetPasswordRequest:
+      type: object
+      additionalProperties: false
+      required: [email, passcode, password]
+      properties:
+        email:
+          $ref: '#/components/schemas/Email'
+        passcode:
+          $ref: '#/components/schemas/Passcode'
+        password:
+          $ref: '#/components/schemas/Password'
 
     LoginRequest:
       type: object
@@ -511,7 +597,6 @@ components:
         - EMAIL_TAKEN
         - PASSCODE_INVALID
         - INVALID_CREDENTIALS
-        - VERIFICATION_REQUIRED
         - UNAUTHORIZED
         - RECIPIENT_NOT_FOUND
         - SELF_TRANSFER

@@ -15,9 +15,12 @@ export interface paths {
         put?: never;
         /**
          * Sign up
-         * @description Creates a pending user with a random starting balance and emails a 6-digit passcode,
-         *     valid for 10 minutes. Signing up again with the email of a pending user replaces that
-         *     user and sends a new passcode. An email that belongs to a verified user is refused.
+         * @description Validates the email, password and phone, records a pending sign-up for the email and
+         *     emails a 6-digit passcode, valid for 10 minutes. Nothing else is saved yet: the password
+         *     and phone are saved by `verifyOtp`, which receives them with the passcode, so only the
+         *     holder of the inbox chooses the password (docs/decisions/0007). Signing up again with a
+         *     pending email is a resend (`resendOtp`'s silent cooldown and cap) and gets the same
+         *     answer. An email that belongs to a verified user is refused.
          */
         post: operations["signUp"];
         delete?: never;
@@ -37,11 +40,13 @@ export interface paths {
         put?: never;
         /**
          * Verify the passcode
-         * @description Checks the passcode of a pending user. A correct passcode verifies the user and returns
-         *     an access token, so sign-up ends signed in. A passcode is used up after 5 wrong tries or
-         *     10 minutes. Every failure gets the same `PASSCODE_INVALID`: a wrong, expired or used-up
-         *     passcode, an unknown email and a user who is not pending, so the answer never reveals
-         *     whether a sign-up exists. The client offers to send a new passcode.
+         * @description Checks the passcode of a pending sign-up. The request repeats the password and phone
+         *     from the sign-up form; a correct passcode creates the verified user with them and a
+         *     random starting balance, and returns an access token, so sign-up ends signed in. A
+         *     passcode is used up after 5 wrong tries or 10 minutes. Every failure gets the same
+         *     `PASSCODE_INVALID`: a wrong, expired or used-up passcode, an unknown email and an email
+         *     that is not pending, so the answer never reveals whether a sign-up exists. The client
+         *     offers to send a new passcode.
          */
         post: operations["verifyOtp"];
         delete?: never;
@@ -61,8 +66,8 @@ export interface paths {
         put?: never;
         /**
          * Send a new passcode
-         * @description Replaces the pending user's passcode with a new one and emails it. The response is the
-         *     same `202` for every well-formed email, whether or not a pending user has it, so it never
+         * @description Replaces the pending sign-up's passcode with a new one and emails it. The response is the
+         *     same `202` for every well-formed email, whether or not a sign-up is pending, so it never
          *     reveals who signed up. A 60-second cooldown and a cap of 5 per hour per user are applied
          *     silently: inside them, nothing is sent. Only the per-client rate limit answers `429`.
          */
@@ -84,11 +89,58 @@ export interface paths {
         put?: never;
         /**
          * Log in
-         * @description Exchanges email and password for an access token. An unknown email and a wrong password
-         *     get the same `INVALID_CREDENTIALS`. A pending user with the right password gets
-         *     `VERIFICATION_REQUIRED` instead of a token.
+         * @description Exchanges email and password for an access token. An unknown email, a wrong password and
+         *     an email whose sign-up is still pending (it has no password yet) get the same
+         *     `INVALID_CREDENTIALS`.
          */
         post: operations["login"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/password/forgot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask for a password reset passcode
+         * @description Emails a 6-digit reset passcode, valid for 10 minutes, if a verified user has this email
+         *     (docs/decisions/0008). The response is the same `202` for every well-formed email, so it
+         *     never reveals who is registered. The 60-second cooldown and the cap of 5 per hour per
+         *     user are applied silently, as for `resendOtp`. Only the per-client rate limit answers
+         *     `429`.
+         */
+        post: operations["requestPasswordReset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/password/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set a new password with the reset passcode
+         * @description A correct reset passcode replaces the user's password and is used up; the user then logs
+         *     in. Tokens issued before the reset stay valid until they expire. A passcode is used up
+         *     after 5 wrong tries or 10 minutes. Every failure gets the same `PASSCODE_INVALID`, as in
+         *     `verifyOtp`.
+         */
+        post: operations["resetPassword"];
         delete?: never;
         options?: never;
         head?: never;
@@ -104,8 +156,8 @@ export interface paths {
         };
         /**
          * Get my account
-         * @description The signed-in user's account. The balance is set once, at sign-up, and changes only
-         *     through transfers.
+         * @description The signed-in user's account. The balance is set once, when the sign-up is verified, and
+         *     changes only through transfers.
          */
         get: operations["getMe"];
         put?: never;
@@ -166,8 +218,8 @@ export interface components {
     schemas: {
         /**
          * Format: email
-         * @description Case-insensitive: the server stores and compares it lowercased. Clients trim it before
-         *     sending; surrounding spaces fail validation.
+         * @description Case-insensitive: the server stores and compares it lowercased. It is not trimmed:
+         *     surrounding spaces fail validation (docs/decisions/0007).
          * @example dana@example.com
          */
         Email: string;
@@ -200,9 +252,19 @@ export interface components {
         VerifyOtpRequest: {
             email: components["schemas"]["Email"];
             passcode: components["schemas"]["Passcode"];
+            password: components["schemas"]["Password"];
+            phone: components["schemas"]["PhoneE164"];
         };
         ResendOtpRequest: {
             email: components["schemas"]["Email"];
+        };
+        PasswordResetRequest: {
+            email: components["schemas"]["Email"];
+        };
+        ResetPasswordRequest: {
+            email: components["schemas"]["Email"];
+            passcode: components["schemas"]["Passcode"];
+            password: components["schemas"]["Password"];
         };
         LoginRequest: {
             email: components["schemas"]["Email"];
@@ -266,7 +328,7 @@ export interface components {
          * @description The error catalogue. Clients branch on `code`, never on `title` or `detail`.
          * @enum {string}
          */
-        ErrorCode: "VALIDATION_FAILED" | "EMAIL_TAKEN" | "PASSCODE_INVALID" | "INVALID_CREDENTIALS" | "VERIFICATION_REQUIRED" | "UNAUTHORIZED" | "RECIPIENT_NOT_FOUND" | "SELF_TRANSFER" | "INSUFFICIENT_FUNDS" | "RATE_LIMITED" | "INTERNAL_ERROR";
+        ErrorCode: "VALIDATION_FAILED" | "EMAIL_TAKEN" | "PASSCODE_INVALID" | "INVALID_CREDENTIALS" | "UNAUTHORIZED" | "RECIPIENT_NOT_FOUND" | "SELF_TRANSFER" | "INSUFFICIENT_FUNDS" | "RATE_LIMITED" | "INTERNAL_ERROR";
         /** @description An RFC 9457 problem document with the app's error `code`. */
         Problem: {
             /**
@@ -353,8 +415,8 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Pending user created; a passcode was sent to the email. */
-            201: {
+            /** @description Accepted. A pending sign-up exists for the email and a passcode was sent, unless the resend cooldown or cap held it back. */
+            202: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -424,7 +486,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Accepted. If a pending user has this email, a new passcode was sent. */
+            /** @description Accepted. If a sign-up is pending for this email, a new passcode was sent. */
             202: {
                 headers: {
                     [name: string]: unknown;
@@ -468,8 +530,58 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description The password is right, but the email is not verified yet. */
-            403: {
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    requestPasswordReset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordResetRequest"];
+            };
+        };
+        responses: {
+            /** @description Accepted. If a verified user has this email, a reset passcode was sent. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["ValidationFailed"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    resetPassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResetPasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description The password was changed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["ValidationFailed"];
+            /** @description The passcode was not accepted. */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -2,7 +2,10 @@
 
 Operations `login` and `getMe` in [`api/openapi.yaml`](../../api/openapi.yaml). Token and its
 storage: [ADR-0004](../decisions/0004-bearer-jwt-in-sessionstorage-client-logout.md). A pending
-user finishes sign-up with the passcode flow in [signup-passcode.md](signup-passcode.md).
+sign-up has no password yet, so login treats it as an unknown email
+([ADR-0007](../decisions/0007-sign-up-sets-credentials-at-verification.md)); it is finished with
+the passcode flow in [signup-passcode.md](signup-passcode.md). A forgotten password is reset
+with [password-reset.md](password-reset.md).
 
 ```mermaid
 sequenceDiagram
@@ -19,13 +22,11 @@ sequenceDiagram
     else too many requests from this client
         API-->>C: 429 RATE_LIMITED (Retry-After)
     else
-        API->>DB: find user by lowercased email
-        alt unknown email, or the password does not match its hash
-            API-->>C: 401 INVALID_CREDENTIALS (same answer for both)
-        else right password, user still pending
-            API-->>C: 403 VERIFICATION_REQUIRED
-            C->>U: offer to send a new passcode (resend)
-        else right password, verified user
+        API->>DB: find verified user by lowercased email
+        alt unknown email, a sign-up still pending, or the password does not match its hash
+            API-->>C: 401 INVALID_CREDENTIALS (same answer for all three)
+            C->>U: offer "forgot password"
+        else right password
             API->>API: sign JWT, sub = user id, expires in 1 hour
             API-->>C: 200 AccessToken
             C->>C: keep the token in sessionStorage

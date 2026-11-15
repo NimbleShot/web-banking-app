@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: superseded by 0007
 date: 2026-11-13
 ---
 # 0002. Sign-up creates a pending user; the store alone keeps emails unique

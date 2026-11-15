@@ -33,5 +33,5 @@ npm run check:postman  # import the contract as a Postman collection: one reques
 | File | What it is |
 |------|------------|
 | [`docs/requirements.md`](docs/requirements.md) | What the app does: requirement IDs and acceptance checks |
-| [`docs/decisions/`](docs/decisions/) | Architecture decision records: OTP, sign-up, money, sessions, toolchain, API conventions |
+| [`docs/decisions/`](docs/decisions/) | Architecture decision records: OTP, sign-up, money, sessions, toolchain, API conventions, password reset |
 | [`docs/tech-stack.md`](docs/tech-stack.md) | Tools per layer, versions, known pitfalls, and the ledger of installed dependencies |
