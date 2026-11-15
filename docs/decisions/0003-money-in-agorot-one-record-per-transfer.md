@@ -2,7 +2,7 @@
 status: accepted
 date: 2026-11-13
 ---
-# 0007. Money is integer agorot; one record per transfer, written in one transaction
+# 0003. Money is integer agorot; one record per transfer, written in one transaction
 
 **Context.** How money is represented, how a transfer is recorded, and how it stays
 all-or-nothing. Settles requirements open decisions 4 and 5.

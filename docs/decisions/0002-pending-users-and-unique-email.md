@@ -1,8 +1,8 @@
 ---
-status: accepted
+status: superseded by 0007
 date: 2026-11-13
 ---
-# 0006. Sign-up creates a pending user; the store alone keeps emails unique
+# 0002. Sign-up creates a pending user; the store alone keeps emails unique
 
 **Context.** When does a user exist before verifying, and what stops two racing sign-ups from
 duplicating an email? Settles open decisions 2 and 3.

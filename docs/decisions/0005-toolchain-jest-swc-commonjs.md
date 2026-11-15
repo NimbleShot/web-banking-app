@@ -2,7 +2,7 @@
 status: accepted
 date: 2026-11-13
 ---
-# 0009. Toolchain: npm workspaces, TS 6.0, CommonJS server, Jest with @swc/jest
+# 0005. Toolchain: npm workspaces, TS 6.0, CommonJS server, Jest with @swc/jest
 
 **Context.** Every later phase builds and tests with the same tools. On 13 Nov 2026 TS 7 is npm
 `latest`, but typescript-eslint accepts `<6.1`. Jest's ESM support is still experimental, and the

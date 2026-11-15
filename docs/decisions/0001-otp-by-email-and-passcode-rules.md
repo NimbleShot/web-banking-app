@@ -2,7 +2,7 @@
 status: accepted
 date: 2026-11-13
 ---
-# 0005. Passcodes go by email; fixed passcode rules
+# 0001. Passcodes go by email; fixed passcode rules
 
 **Context.** The worksheet allows SMS or email for the 6-digit passcode and leaves its rules open.
 Settles requirements open decisions 1 and 8.

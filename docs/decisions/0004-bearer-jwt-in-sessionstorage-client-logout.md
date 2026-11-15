@@ -2,7 +2,7 @@
 status: accepted
 date: 2026-11-13
 ---
-# 0008. Bearer JWT kept in sessionStorage; logout is client-side
+# 0004. Bearer JWT kept in sessionStorage; logout is client-side
 
 **Context.** Where the browser keeps the login, and what logout means on the server while a JWT
 stays valid until it expires. The front end (`vercel.app`) and the API (`onrender.com`) are

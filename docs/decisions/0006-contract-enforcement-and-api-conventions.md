@@ -2,7 +2,7 @@
 status: accepted
 date: 2026-11-13
 ---
-# 0010. The OpenAPI contract is enforced three ways; API conventions
+# 0006. The OpenAPI contract is enforced three ways; API conventions
 
 **Context.** `api/openapi.yaml` is written by hand before any code (worksheet phase 1). Nothing
 keeps code and contract together unless something checks it. The API's shape conventions bind
