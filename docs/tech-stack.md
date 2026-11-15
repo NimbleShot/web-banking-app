@@ -22,6 +22,8 @@ and system packages or binaries the project depends on. A removal deletes the ro
 | `@redocly/cli` | dev | ^2.78 (2.78.0) | root | P01 | Lints `api/openapi.yaml` (`lint:api`, `recommended-strict`: warnings fail) |
 | `openapi-typescript` | npx | 7.13.0 | root | P01 | `gen:api`: TypeScript types from the contract. Run through `npx` because it peers TS 5 |
 | `openapi-to-postmanv2` | npx | 6.4.3 | root | P01 | `check:postman`: imports the contract the way Postman does and counts one request per operation |
+| `@mermaid-js/mermaid-cli` | npx | 12.2.0 | root | P01 | `check:diagrams`: renders the sequence diagrams in `docs/diagrams/` (run with `PUPPETEER_SKIP_DOWNLOAD=1`, so it drives the local Chrome) |
+| `google-chrome` | system | stable (`/usr/bin/google-chrome` by default) | — | P01 | The headless browser mermaid-cli renders with; another path goes in `PUPPETEER_EXECUTABLE_PATH` |
 
 Kinds: `dev` (devDependency) · `runtime` (dependency) · `npx` (pinned, never installed) ·
 `system` (apt package or binary on the server or CI runner).

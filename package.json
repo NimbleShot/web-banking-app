@@ -19,7 +19,8 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "lint:api": "redocly lint api/openapi.yaml",
-    "gen:api": "npx --yes openapi-typescript@7.13.0 api/openapi.yaml -o api/generated/schema.d.ts"
+    "gen:api": "npx --yes openapi-typescript@7.13.0 api/openapi.yaml -o api/generated/schema.d.ts",
+    "check:diagrams": "node scripts/check-diagrams.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
