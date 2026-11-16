@@ -72,17 +72,18 @@ TX-6..8 are implied by the worksheet rather than written in it.
 | ID | Requirement | Acceptance check |
 |----|-------------|------------------|
 | SEC-1 | Passwords are stored only as a slow, salted hash | No plaintext or reversible password anywhere in storage or logs |
-| SEC-2 | Login, OTP verify and OTP resend are rate-limited | Repeated attempts beyond the limit get 429 |
+| SEC-2 | Sign-up, login, OTP verify and resend, and password reset are rate-limited | Repeated attempts beyond the limit get 429 |
 | SEC-3 | CORS allows only the app's own front-end origin; security headers are set | A request from another origin is refused; helmet headers present |
 | SEC-4 | Errors don't reveal whether an email is registered (login, resend) | Same response for unknown email and wrong password |
 | SEC-5 | Secrets, passwords, OTPs and tokens never appear in logs or responses | Log and response review in tests finds none |
 
-### Contract (phase 1)
+### Contract (phases 1–2)
 | ID | Requirement | Acceptance check |
 |----|-------------|------------------|
 | CT-1 | The REST API is defined in Swagger (OpenAPI) before implementation | `api/openapi.yaml` lints clean, opens in Swagger UI and imports into Postman; covers every phase-2 operation, error shapes and the auth scheme |
 | CT-2 | Sequence diagrams for the main flows | Mermaid diagrams for sign-up + OTP, login and transfer render on GitHub |
 | CT-3 | The phase-1 product decisions are recorded | An accepted ADR for each open decision 1–8 (§4) |
+| CT-4 | The server enforces the contract at run time (phase 2) | A request that breaks it gets 400 with an error per field; an unknown path or method gets 404 `NOT_FOUND`; every response in the tests is validated against it |
 
 ### Reserved prefixes (minted when their phase is specified)
 `DM` Mongo (phase 3) · `DP` deployment (6) · `UX` Figma and theme (4, 5) · `RT` realtime (7) ·

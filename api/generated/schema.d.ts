@@ -20,7 +20,8 @@ export interface paths {
          *     and phone are saved by `verifyOtp`, which receives them with the passcode, so only the
          *     holder of the inbox chooses the password (docs/decisions/0007). Signing up again with a
          *     pending email is a resend (`resendOtp`'s silent cooldown and cap) and gets the same
-         *     answer. An email that belongs to a verified user is refused.
+         *     answer. An email that belongs to a verified user is refused. A per-client rate limit
+         *     answers `429`.
          */
         post: operations["signUp"];
         delete?: never;
@@ -328,7 +329,7 @@ export interface components {
          * @description The error catalogue. Clients branch on `code`, never on `title` or `detail`.
          * @enum {string}
          */
-        ErrorCode: "VALIDATION_FAILED" | "EMAIL_TAKEN" | "PASSCODE_INVALID" | "INVALID_CREDENTIALS" | "UNAUTHORIZED" | "RECIPIENT_NOT_FOUND" | "SELF_TRANSFER" | "INSUFFICIENT_FUNDS" | "RATE_LIMITED" | "INTERNAL_ERROR";
+        ErrorCode: "VALIDATION_FAILED" | "EMAIL_TAKEN" | "PASSCODE_INVALID" | "INVALID_CREDENTIALS" | "UNAUTHORIZED" | "RECIPIENT_NOT_FOUND" | "SELF_TRANSFER" | "INSUFFICIENT_FUNDS" | "RATE_LIMITED" | "NOT_FOUND" | "INTERNAL_ERROR";
         /** @description An RFC 9457 problem document with the app's error `code`. */
         Problem: {
             /**
@@ -434,6 +435,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+            429: components["responses"]["RateLimited"];
             500: components["responses"]["InternalError"];
         };
     };
