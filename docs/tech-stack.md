@@ -28,6 +28,8 @@ and system packages or binaries the project depends on. A removal deletes the ro
 | `express-openapi-validator` | runtime | ^5.6 (5.6.2) | server | P02 | Validates every request against `api/openapi.yaml`, and every response in tests ([ADR-0006](decisions/0006-contract-enforcement-and-api-conventions.md)) |
 | `pino` | runtime | ^10.4 (10.4.0) | server | P02 | JSON logs, with the Authorization and Cookie headers redacted |
 | `pino-http` | runtime | ^11.0 (11.0.0) | server | P02 | One log line per request, through the same logger |
+| `helmet` | runtime | ^8.3 (8.3.0) | server | P02 | Security headers on every answer, errors included (SEC-3) |
+| `cors` | runtime | ^2.8 (2.8.6) | server | P02 | Lets only the front-end origin (`CORS_ORIGIN`) read answers and send preflights (SEC-3) |
 | `jest` | dev | ^30.5 (30.5.2) | server | P02 | Test runner ([ADR-0005](decisions/0005-toolchain-jest-swc-commonjs.md)); `npm test` in `check` |
 | `@jest/globals` | dev | ^30.5 (30.5.2) | server | P02 | Typed `describe`/`it`/`expect` imports instead of ambient globals |
 | `@swc/jest` | dev | ^0.2.39 (0.2.39) | server | P02 | Strips TypeScript types for Jest; types are checked by `tsc` instead |
@@ -37,6 +39,7 @@ and system packages or binaries the project depends on. A removal deletes the ro
 | `@types/express` | dev | ^5.0 (5.0.6) | server | P02 | Express types |
 | `@types/node` | dev | ^24.19 (24.19.2) | server | P02 | Node 24 types |
 | `@types/supertest` | dev | ^7.2 (7.2.1) | server | P02 | Supertest types |
+| `@types/cors` | dev | ^2.8 (2.8.19) | server | P02 | `cors` types |
 
 Kinds: `dev` (devDependency) · `runtime` (dependency) · `npx` (pinned, never installed) ·
 `system` (apt package or binary on the server or CI runner).

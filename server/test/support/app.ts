@@ -1,21 +1,30 @@
 // A fresh app per test (docs/decisions/0009), with its responses checked against the contract.
 import type { Router } from 'express';
 import { createApp } from '../../src/app';
-import type { AppConfig } from '../../src/config';
+import { type AppConfig, DEV_CORS_ORIGIN } from '../../src/config';
 import type { ResponseViolation } from '../../src/http/contract';
 import { createLogger } from '../../src/logger';
 
 const violations: ResponseViolation[] = [];
 
 export function testConfig(overrides: Partial<AppConfig> = {}): AppConfig {
-  return { port: 0, nodeEnv: 'test', logLevel: 'silent', ...overrides };
+  return {
+    port: 0,
+    nodeEnv: 'test',
+    logLevel: 'silent',
+    corsOrigin: DEV_CORS_ORIGIN,
+    ...overrides,
+  };
 }
 
-/** The app as production builds it, plus response validation; `routes` replaces the operations. */
-export function buildTestApp(routes?: Router) {
+/**
+ * The app as production builds it, plus response validation; `routes` replaces the operations
+ * and `config` overrides the test configuration.
+ */
+export function buildTestApp(routes?: Router, config: Partial<AppConfig> = {}) {
   return createApp(
     {
-      config: testConfig(),
+      config: testConfig(config),
       logger: createLogger('silent'),
       onResponseViolation: (violation) => violations.push(violation),
     },

@@ -21,6 +21,7 @@ value and lists every problem. [`.env.example`](.env.example) lists them all.
 | `PORT` | `3000` | Port to listen on |
 | `NODE_ENV` | `development` | `development`, `test` or `production` |
 | `LOG_LEVEL` | `info` | pino level, or `silent` |
+| `CORS_ORIGIN` | `http://localhost:5173`; required in production | The front end's origin, the only one a browser may call the API from: `http(s)://host[:port]`, no path or trailing slash |
 
 ## How a request flows
 
@@ -28,13 +29,15 @@ value and lists every problem. [`.env.example`](.env.example) lists them all.
 port, so tests call the app directly.
 
 1. A pino request log line (credentials redacted).
-2. The contract ([`src/http/contract.ts`](src/http/contract.ts)): the operation is looked up (an
+2. Security headers (helmet) on every answer, errors included, and CORS: only `CORS_ORIGIN` gets
+   `Access-Control-Allow-Origin`, and preflight (`OPTIONS`) requests are answered here.
+3. The contract ([`src/http/contract.ts`](src/http/contract.ts)): the operation is looked up (an
    unknown path or method answers `404 NOT_FOUND`), the bearer header is required where the
    contract asks for it, the JSON body is parsed, and the path, query and body are validated. Any
    mismatch answers `400 VALIDATION_FAILED` with one `errors` entry per field, before a handler
    runs.
-3. The operation's route.
-4. [`src/http/errors.ts`](src/http/errors.ts) turns every error into an
+4. The operation's route.
+5. [`src/http/errors.ts`](src/http/errors.ts) turns every error into an
    `application/problem+json` answer whose `code` comes from the contract's `ErrorCode` catalogue.
 
 ## Tests

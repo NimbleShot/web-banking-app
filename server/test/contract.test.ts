@@ -183,6 +183,29 @@ describe('CT-4 the server enforces the contract at run time', () => {
         expect(res.body.code).toBe('NOT_FOUND');
       },
     );
+
+    it.each<[string, string, Record<string, string>]>([
+      ['/', 'no Origin', {}],
+      ['/api/v1/nowhere', 'no Origin', {}],
+      ['/api/v1/me', 'no Origin', {}],
+      [
+        '/api/v1/transfers',
+        'the front-end Origin but no Access-Control-Request-Method',
+        {
+          Origin: 'http://localhost:5173',
+        },
+      ],
+    ])(
+      '[CT-4.b] OPTIONS %s with %s is not a preflight and answers 404 NOT_FOUND',
+      async (path, _what, headers) => {
+        const res = await request(buildTestApp()).options(path).set(headers);
+
+        expect(res.status).toBe(404);
+        expect(res.headers['content-type']).toMatch(PROBLEM_JSON);
+        expect(res.body.code).toBe('NOT_FOUND');
+        expect(res.headers).not.toHaveProperty('access-control-allow-origin');
+      },
+    );
   });
 
   describe('responses in the test suite', () => {
