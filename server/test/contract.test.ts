@@ -72,6 +72,23 @@ describe('CT-4 the server enforces the contract at run time', () => {
       expect(fieldsOf(res.body)).toEqual(['limit']);
     });
 
+    it('[CT-4.a] getMe answers a request that breaks the contract with its documented 400', async () => {
+      const app = buildTestApp();
+
+      const unknownParameter = await request(app).get('/api/v1/me?_=123').set(BEARER);
+      expect(unknownParameter.status).toBe(400);
+      expect(unknownParameter.body.code).toBe('VALIDATION_FAILED');
+      expect(fieldsOf(unknownParameter.body)).toEqual(['_']);
+
+      const brokenBody = await request(app)
+        .get('/api/v1/me')
+        .set(BEARER)
+        .set('Content-Type', 'application/json')
+        .send('{"a":');
+      expect(brokenBody.status).toBe(400);
+      expect(fieldsOf(brokenBody.body)).toEqual(['body']);
+    });
+
     it('[CT-4.a] malformed JSON names the body', async () => {
       const res = await request(buildTestApp())
         .post('/api/v1/auth/signup')

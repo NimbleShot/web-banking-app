@@ -613,6 +613,7 @@ export interface operations {
                     "application/json": components["schemas"]["Account"];
                 };
             };
+            400: components["responses"]["ValidationFailed"];
             401: components["responses"]["Unauthorized"];
             500: components["responses"]["InternalError"];
         };
