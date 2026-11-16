@@ -10,12 +10,22 @@ export type LogLevel = (typeof LOG_LEVELS)[number];
 /** The front end's origin outside production when CORS_ORIGIN is unset: the Vite dev server. */
 export const DEV_CORS_ORIGIN = 'http://localhost:5173';
 
+/** The shortest secret accepted, in UTF-8 bytes (docs/decisions/0010). */
+export const MIN_SECRET_BYTES = 32;
+
+/** The command the start-up errors (and server/.env.example) give for making a secret. */
+export const GENERATE_SECRET = `node -p "require('node:crypto').randomBytes(${MIN_SECRET_BYTES}).toString('base64')"`;
+
 export type AppConfig = {
   port: number;
   nodeEnv: NodeEnv;
   logLevel: LogLevel;
   /** The one origin allowed to call the API from a browser (SEC-3). */
   corsOrigin: string;
+  /** Signs and verifies access tokens (HS256); at least 32 bytes. */
+  jwtSecret: string;
+  /** Keys the passcode HMACs; at least 32 bytes. */
+  passcodeSecret: string;
 };
 
 /** Thrown when the environment can't configure the server; lists every problem at once. */
@@ -45,6 +55,11 @@ function corsOriginProblem(value: string): string | undefined {
   return `CORS_ORIGIN must be exactly an origin such as https://bank.example.com (got "${value}"; did you mean "${url.origin}"?)`;
 }
 
+/** The problem for a secret that is unset or shorter than MIN_SECRET_BYTES. */
+function secretProblem(name: string): string {
+  return `${name} must be set to a secret of at least ${MIN_SECRET_BYTES} bytes; generate one with: ${GENERATE_SECRET}`;
+}
+
 function oneOf<T extends string>(value: string, allowed: readonly T[]): value is T {
   return (allowed as readonly string[]).includes(value);
 }
@@ -53,6 +68,17 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
   const problems: string[] = [];
   // A blank line in .env (`PORT=`) means "not set", for every variable alike.
   const read = (name: string): string | undefined => env[name]?.trim() || undefined;
+  /**
+   * A secret is required in every environment and must be at least MIN_SECRET_BYTES of UTF-8.
+   * Returns it, or records a problem that names the variable and nothing about its value, not
+   * even its length, and returns undefined.
+   */
+  const requireSecret = (name: string): string | undefined => {
+    const value = read(name);
+    if (value !== undefined && Buffer.byteLength(value, 'utf8') >= MIN_SECRET_BYTES) return value;
+    problems.push(secretProblem(name));
+    return undefined;
+  };
 
   const rawPort = read('PORT') ?? '3000';
   const port = Number(rawPort);
@@ -77,6 +103,19 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     if (problem) problems.push(problem);
   }
 
-  if (problems.length > 0) throw new ConfigError(problems);
-  return { port, nodeEnv: nodeEnv as NodeEnv, logLevel: logLevel as LogLevel, corsOrigin };
+  const jwtSecret = requireSecret('JWT_SECRET');
+  const passcodeSecret = requireSecret('PASSCODE_SECRET');
+
+  // A missing secret has always recorded a problem; testing it here narrows its type.
+  if (problems.length > 0 || jwtSecret === undefined || passcodeSecret === undefined) {
+    throw new ConfigError(problems);
+  }
+  return {
+    port,
+    nodeEnv: nodeEnv as NodeEnv,
+    logLevel: logLevel as LogLevel,
+    corsOrigin,
+    jwtSecret,
+    passcodeSecret,
+  };
 }

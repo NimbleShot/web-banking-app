@@ -118,7 +118,7 @@ describe('CT-4 the server enforces the contract at run time', () => {
         calls += 1;
         res.status(202).json({ email: req.body.email, status: 'pending' });
       });
-      const app = buildTestApp(routes);
+      const app = buildTestApp({ routes });
 
       const invalid = await request(app)
         .post('/api/v1/auth/signup')
@@ -214,7 +214,9 @@ describe('CT-4 the server enforces the contract at run time', () => {
     });
 
     it('[CT-4.c] a response with a missing or mistyped field is reported', async () => {
-      await request(buildTestApp(wrongMe)).get('/api/v1/me').set(BEARER);
+      await request(buildTestApp({ routes: wrongMe }))
+        .get('/api/v1/me')
+        .set(BEARER);
 
       const [violation, ...more] = takeResponseViolations();
       expect(more).toHaveLength(0);
@@ -228,7 +230,9 @@ describe('CT-4 the server enforces the contract at run time', () => {
       const teapot = Router().get('/api/v1/me', (_req, res) => {
         res.status(418).json({ short: 'and stout' });
       });
-      await request(buildTestApp(teapot)).get('/api/v1/me').set(BEARER);
+      await request(buildTestApp({ routes: teapot }))
+        .get('/api/v1/me')
+        .set(BEARER);
 
       const violations = takeResponseViolations();
       expect(violations).toHaveLength(1);
@@ -239,7 +243,9 @@ describe('CT-4 the server enforces the contract at run time', () => {
       const plain = Router().get('/api/v1/me', (_req, res) => {
         res.status(200).send('ok');
       });
-      await request(buildTestApp(plain)).get('/api/v1/me').set(BEARER);
+      await request(buildTestApp({ routes: plain }))
+        .get('/api/v1/me')
+        .set(BEARER);
 
       const violations = takeResponseViolations();
       expect(violations).toHaveLength(1);
@@ -248,7 +254,9 @@ describe('CT-4 the server enforces the contract at run time', () => {
     });
 
     it('[CT-4.c] a reported violation fails the test that caused it', async () => {
-      await request(buildTestApp(wrongMe)).get('/api/v1/me').set(BEARER);
+      await request(buildTestApp({ routes: wrongMe }))
+        .get('/api/v1/me')
+        .set(BEARER);
 
       expect(assertNoResponseViolations).toThrow(
         /broke api\/openapi\.yaml[\s\S]*GET \/api\/v1\/me -> 200/,

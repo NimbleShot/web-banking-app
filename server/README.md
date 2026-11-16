@@ -8,6 +8,8 @@ to CommonJS, tested with Jest and Supertest.
 ```sh
 npm ci                        # from the repository root
 cp server/.env.example server/.env
+# set JWT_SECRET and PASSCODE_SECRET in server/.env, each to the output of:
+node -p "require('node:crypto').randomBytes(32).toString('base64')"
 npm run dev -w server         # http://localhost:3000, restarts on change
 ```
 
@@ -22,6 +24,12 @@ value and lists every problem. [`.env.example`](.env.example) lists them all.
 | `NODE_ENV` | `development` | `development`, `test` or `production` |
 | `LOG_LEVEL` | `info` | pino level, or `silent` |
 | `CORS_ORIGIN` | `http://localhost:5173`; required in production | The front end's origin, the only one a browser may call the API from: `http(s)://host[:port]`, no path or trailing slash |
+| `JWT_SECRET` | none; required | Signs the access tokens; at least 32 bytes |
+| `PASSCODE_SECRET` | none; required | Keys the hashes of the emailed passcodes; at least 32 bytes |
+
+A start-up error names a missing or short secret but never shows its value, and a log line
+shows the configuration's secrets as `[Redacted]`. Generate each secret with the command under
+[Run it](#run-it), separately for each variable and each environment.
 
 ## How a request flows
 
@@ -39,6 +47,8 @@ port, so tests call the app directly.
 4. The operation's route.
 5. [`src/http/errors.ts`](src/http/errors.ts) turns every error into an
    `application/problem+json` answer whose `code` comes from the contract's `ErrorCode` catalogue.
+   An unexpected error answers `500 INTERNAL_ERROR` with no message or stack trace; the error is
+   logged on the server.
 
 ## Tests
 

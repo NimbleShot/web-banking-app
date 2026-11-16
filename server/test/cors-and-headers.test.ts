@@ -2,7 +2,7 @@ import { describe, expect, it } from '@jest/globals';
 import { Router } from 'express';
 import request, { type Response } from 'supertest';
 import { ConfigError, loadConfig } from '../src/config';
-import { buildTestApp } from './support/app';
+import { buildTestApp, TEST_SECRETS } from './support/app';
 
 const FRONT_END = 'https://bank.example.com';
 const validSignUp = {
@@ -30,14 +30,14 @@ const DEV_DEFAULT = 'http://localhost:5173';
  * A valid environment for loadConfig; each test adds or overrides what it is about. Variables
  * every environment must set go here.
  */
-const BASE_ENV: NodeJS.ProcessEnv = {};
+const BASE_ENV: NodeJS.ProcessEnv = { ...TEST_SECRETS };
 const env = (overrides: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv => ({
   ...BASE_ENV,
   ...overrides,
 });
 
 const appFor = (corsOrigin: string, routes = acceptingSignUp()) =>
-  buildTestApp(routes, { corsOrigin });
+  buildTestApp({ routes, config: { corsOrigin } });
 
 /** A header that lists names or methods, split and lower-cased: `"Authorization, content-type"`. */
 const listed = (value: string | undefined): string[] =>
