@@ -58,10 +58,10 @@ Kinds: `dev` (devDependency) · `runtime` (dependency) · `npx` (pinned, never i
 |-------|--------|---------|-------|
 | Express | **Fixed** | 5.3 | Express 5: a rejected promise in an async handler goes to your error middleware by itself (no try/catch wrapper needed). Wildcard routes changed syntax (`/*splat`). Most tutorials online are still Express 4 |
 | Validation | Requests validated against `openapi.yaml` by `express-openapi-validator` ([ADR-0006](decisions/0006-contract-enforcement-and-api-conventions.md)); **Zod** for env config and client forms | 4.6 | Zod covers email format (`z.email()`). For phone numbers, add `libphonenumber-js` and store E.164 (`+972…`) |
-| Passwords | `argon2` (OWASP's first choice) or `bcrypt` | 0.45 / 6.0 | Hash, never encrypt. bcrypt silently uses only the first 72 bytes of a password |
-| JWT | `jsonwebtoken` (most tutorials) or `jose` (modern, typed, also does RS256 for Jitsi) | 9.0 / 6.2 | — |
-| Security middleware | `helmet`, `cors`, `express-rate-limit` | 8.3 / 2.8 / 8.7 | Rate-limit login, OTP verify and OTP resend in particular |
-| Logging | `pino` (+ `pino-http`) | 10.4 | Optional; beats `console.log` once it's deployed |
+| Passwords | Decided ([ADR-0010](decisions/0010-argon2id-passwords-and-jose-tokens.md)): `argon2`, argon2id at OWASP's minimum (19 MiB, 2 iterations) | 0.45 | Hash, never encrypt. bcrypt (6.0), set aside, silently uses only the first 72 bytes of a password |
+| JWT | Decided ([ADR-0010](decisions/0010-argon2id-passwords-and-jose-tokens.md)): `jose` (typed, no dependencies, also does RS256 for Jitsi) | 6.2 | ESM-only: see gotcha 14. `jsonwebtoken` (9.0) was set aside |
+| Security middleware | `helmet`, `cors`, `express-rate-limit` | 8.3 / 2.8 / 8.7 | Rate limits per client IP: [ADR-0011](decisions/0011-per-client-rate-limits.md) |
+| Logging | `pino` + `pino-http` | 10.4 / 11.0 | JSON request logs with the `Authorization` header and every password, passcode and token field redacted (SEC-5) |
 | API docs | Hand-written `openapi.yaml` (OpenAPI 3.1, not 3.2) served by `swagger-ui-express` | 5.0 | Phase 1 asks for the API in Swagger before any code, so write the spec by hand ("design-first"). `zod-to-openapi` would be "code-first", the opposite of what phase 1 teaches |
 | Contract checks | Decided ([ADR-0006](decisions/0006-contract-enforcement-and-api-conventions.md)): `@redocly/cli` (lint), `express-openapi-validator` (requests always, responses in tests), `openapi-typescript` + `openapi-fetch` (client types) | 2.78 / 5.6 / 7.13 / 0.17 | express-openapi-validator supports OAS 3.1 and Express 5. `openapi-typescript` peers TS `^5`, so run it through a pinned `npx` instead of a workspace devDependency. `jest-openapi` is abandoned (last release 2022) |
 | API client | **Postman** (fixed), run headless with **newman** | newman 6.2 | Import `openapi.yaml` → Postman generates the whole collection. Use an environment variable for the base URL and a script that stores the JWT after login. `newman run` runs the collection from the command line and in CI |
@@ -120,7 +120,7 @@ only a **hash** of it with an expiry, count wrong attempts, and limit re-sends.
 ### Testing
 | Piece | Choice | Version | Notes |
 |-------|--------|---------|-------|
-| Backend tests | **Jest** + **Supertest** (fixed) | 30.5 / 7.3 | Export the Express `app` separately from `app.listen()` so Supertest can call it without a port. **Jest's ESM support is still experimental**, so decided ([ADR-0005](decisions/0005-toolchain-jest-swc-commonjs.md)): a CommonJS server with `@swc/jest`, types checked by `tsc` as a separate step. Jest can `require()` ESM-only dependencies such as `jose` 6 on Node ≥24.9 (24.13.1 is installed; pin `>=24.9 <25` in `.nvmrc`, `engines`, Docker and CI). In CommonJS use `__dirname`, not `import.meta.dirname`. The worksheet names Jest, so Vitest is not the plan |
+| Backend tests | **Jest** + **Supertest** (fixed) | 30.5 / 7.3 | Export the Express `app` separately from `app.listen()` so Supertest can call it without a port. **Jest's ESM support is still experimental**, so decided ([ADR-0005](decisions/0005-toolchain-jest-swc-commonjs.md)): a CommonJS server with `@swc/jest`, types checked by `tsc` as a separate step. Plain Node ≥24.9 `require()`s ESM-only dependencies such as `jose` 6, but Jest has its own module loader and does so only under `--experimental-vm-modules`; without it, see gotcha 14 (24.13.1 is installed; pin `>=24.9 <25` in `.nvmrc`, `engines`, Docker and CI). In CommonJS use `__dirname`, not `import.meta.dirname`. The worksheet names Jest, so Vitest is not the plan |
 | Test database | `mongodb-memory-server` | 11.3 | A real `mongod` in memory per test run. Use `MongoMemoryReplSet` so transfer transactions work in tests |
 | E2E | **Cypress** (fixed) | 16.3 | Cypress 16 removed `Cypress.env()` (use `cy.env()` / `Cypress.expose()`) and `cy.exec()` (use `cy.task()`). On a headless Ubuntu 24.04 machine it needs apt packages (`xvfb xauth libgtk-3-0t64 libgbm-dev libnotify-dev libnss3 libxss1 libasound2t64 libxtst6`). Needs a way to read the OTP in tests: the server's test-mode outbox. For quick ad-hoc UI checks a headless Playwright browser is lighter; Cypress stays the test suite the course asks for |
 
@@ -143,6 +143,13 @@ only a **hash** of it with an expiry, count wrong attempts, and limit re-sends.
 13. `openapi-typescript` 7 lints with its own older Redocly core and reads `redocly.yaml` → a
     built-in rule can pass `lint:api` and still fail `gen:api` (`operation-4xx-problem-details-rfc7807`
     misreads `allOf`). Run both after changing `redocly.yaml`.
+14. `jose` 6 is ESM-only → Jest 30 fails with "Must use import to load ES Module" even on Node
+    24.13. Add `transformIgnorePatterns: ["/node_modules/(?!jose/)"]` and let `@swc/jest`
+    transform `.js` too ([ADR-0010](decisions/0010-argon2id-passwords-and-jose-tokens.md)). Plain
+    Node and `tsc` (`module: node20`) load it from CommonJS unaided. Checked 2026-11-16.
+15. `express-openapi-validator` reports only the first invalid field → pass
+    `validateRequests: { allErrors: true }` for one error per field (SU-3). It answers an
+    undocumented path 404 and a wrong method 405. Checked 2026-11-16 (5.6.2).
 
 ## Sources for these claims
 

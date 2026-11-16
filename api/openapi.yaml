@@ -11,7 +11,8 @@ info:
     - Money is an integer number of agorot (1 ₪ = 100 agorot): `1250` is 12.50 ₪
       (docs/decisions/0003).
     - Errors are `application/problem+json` (RFC 9457) with a machine-readable `code` from the
-      `ErrorCode` enum. Validation errors add per-field `errors`.
+      `ErrorCode` enum. Validation errors add per-field `errors`. A path or method that no
+      operation below describes answers `404` with code `NOT_FOUND`.
     - Authenticated operations take `Authorization: Bearer <JWT>`, returned by passcode
       verification and login and valid for one hour (docs/decisions/0004). There is no logout
       operation: the client discards the token.
@@ -46,8 +47,9 @@ paths:
         and phone are saved by `verifyOtp`, which receives them with the passcode, so only the
         holder of the inbox chooses the password (docs/decisions/0007). Signing up again with a
         pending email is a resend (`resendOtp`'s silent cooldown and cap) and gets the same
-        answer. An email that belongs to a verified user is refused.
-      x-requirements: [SU-1, SU-2, SU-3, OTP-1]
+        answer. An email that belongs to a verified user is refused. A per-client rate limit
+        answers `429`.
+      x-requirements: [SU-1, SU-2, SU-3, OTP-1, SEC-2]
       security: []
       requestBody:
         required: true
@@ -77,6 +79,8 @@ paths:
                     title: Email already registered
                     status: 409
                     code: EMAIL_TAKEN
+        '429':
+          $ref: '#/components/responses/RateLimited'
         '500':
           $ref: '#/components/responses/InternalError'
 
@@ -602,6 +606,7 @@ components:
         - SELF_TRANSFER
         - INSUFFICIENT_FUNDS
         - RATE_LIMITED
+        - NOT_FOUND
         - INTERNAL_ERROR
 
     Problem:
