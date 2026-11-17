@@ -30,6 +30,8 @@ and system packages or binaries the project depends on. A removal deletes the ro
 | `pino-http` | runtime | ^11.0 (11.0.0) | server | P02 | One log line per request, through the same logger |
 | `helmet` | runtime | ^8.3 (8.3.0) | server | P02 | Security headers on every answer, errors included (SEC-3) |
 | `cors` | runtime | ^2.8 (2.8.6) | server | P02 | Lets only the front-end origin (`CORS_ORIGIN`) read answers and send preflights (SEC-3) |
+| `argon2` | runtime | ^0.45 (0.45.2) | server | P02 | Hashes passwords with argon2id, 19 MiB, t=2, p=1 (SEC-1, [ADR-0010](decisions/0010-argon2id-passwords-and-jose-tokens.md)). Native module with prebuilt binaries |
+| `jose` | runtime | ^6.2 (6.2.17) | server | P02 | Signs the HS256 access tokens ([ADR-0010](decisions/0010-argon2id-passwords-and-jose-tokens.md)). ESM-only: Jest compiles it through `transformIgnorePatterns` (gotcha 14) |
 | `jest` | dev | ^30.5 (30.5.2) | server | P02 | Test runner ([ADR-0005](decisions/0005-toolchain-jest-swc-commonjs.md)); `npm test` in `check` |
 | `@jest/globals` | dev | ^30.5 (30.5.2) | server | P02 | Typed `describe`/`it`/`expect` imports instead of ambient globals |
 | `@swc/jest` | dev | ^0.2.39 (0.2.39) | server | P02 | Strips TypeScript types for Jest; types are checked by `tsc` instead |

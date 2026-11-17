@@ -4,6 +4,7 @@ import { InMemoryPendingSignUpRepository } from '../src/repositories/pending-sig
 import { buildTestHarness } from './support/app';
 import {
   AFTER_COOLDOWN,
+  aUser,
   fieldsOf,
   holdUserLookUps,
   HOUR,
@@ -108,6 +109,26 @@ describe('SU-1 sign up with email, password and phone number', () => {
     expect(h.pendingSignUps.snapshot()).toEqual(before);
   });
 
+  it('[SU-1.c] a pending sign-up exactly 24 hours old still gets its resend', async () => {
+    const h = buildTestHarness();
+    await signUp(h);
+    h.clock.advance(24 * HOUR);
+
+    await resend(h);
+
+    expect(passcodesSentTo(h)).toHaveLength(2);
+  });
+
+  it('[SU-1.c] resendOtp sends nothing for a pending sign-up 24 hours and 1 millisecond old', async () => {
+    const h = buildTestHarness();
+    await signUp(h);
+    h.clock.advance(24 * HOUR + 1);
+
+    await resend(h);
+
+    expect(passcodesSentTo(h)).toHaveLength(1);
+  });
+
   it('[SU-1.c] a pending sign-up younger than 24 hours still gets its resend', async () => {
     const h = buildTestHarness();
     await signUp(h);
@@ -139,7 +160,7 @@ describe('SU-2 an email can be registered only once', () => {
     '[SU-2.a] signUp with a verified user\'s email as "%s" answers 409 EMAIL_TAKEN and sends nothing',
     async (email) => {
       const h = buildTestHarness();
-      await h.users.insert({ id: 'user-1', email: 'dana@example.com' });
+      await h.users.insert(aUser('dana@example.com'));
 
       const res = await signUp(h, { ...validSignUp, email });
 
@@ -303,7 +324,7 @@ describe('SEC-4 resendOtp does not reveal whether an email is registered', () =>
   it('[SEC-4.b] an unknown, a pending, a cooling-down and a verified email get an identical 202 with no body', async () => {
     const h = buildTestHarness();
     await signUp(h, { ...validSignUp, email: 'pending@example.com' });
-    await h.users.insert({ id: 'user-1', email: 'verified@example.com' });
+    await h.users.insert(aUser('verified@example.com'));
     h.clock.advance(AFTER_COOLDOWN);
     await signUp(h, { ...validSignUp, email: 'cooling@example.com' });
 

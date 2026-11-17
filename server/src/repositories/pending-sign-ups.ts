@@ -7,7 +7,7 @@ import {
   replacedPasscodeState,
 } from '../services/passcodes';
 
-/** A pending sign-up older than this counts as absent (docs/decisions/0002, 0007). */
+/** A pending sign-up older than this counts as absent; one exactly this old is still live (docs/decisions/0002, 0007). */
 export const PENDING_SIGN_UP_TTL_MS = 24 * 60 * 60_000;
 
 export type PendingSignUp = {
@@ -38,7 +38,9 @@ export class InMemoryPendingSignUpRepository implements PendingSignUpRepository 
   private live(email: string, now: Date): PendingSignUp | undefined {
     const record = this.byEmail.get(email);
     if (!record) return undefined;
-    return now.getTime() - record.createdAt.getTime() < PENDING_SIGN_UP_TTL_MS ? record : undefined;
+    return now.getTime() - record.createdAt.getTime() <= PENDING_SIGN_UP_TTL_MS
+      ? record
+      : undefined;
   }
 
   async create(email: string, hmac: string, now: Date): Promise<boolean> {

@@ -47,7 +47,9 @@ sequenceDiagram
     else expired (10 min), used up (5 wrong tries), or no pending sign-up
         API-->>C: 401 PASSCODE_INVALID (same answer, reveals nothing)
     else correct passcode
-        API->>DB: create the verified user: password hash, phone,<br/>random balance, then delete the pending sign-up
+        API->>DB: use up the passcode: delete the pending sign-up<br/>(a second request with it gets 401 PASSCODE_INVALID)
+        API->>API: hash the password (argon2id)
+        API->>DB: create the verified user: password hash, phone,<br/>random balance (the unique index refuses a second one)
         API-->>C: 200 AccessToken (JWT, 1 hour)
         C->>C: keep the token in sessionStorage
     end

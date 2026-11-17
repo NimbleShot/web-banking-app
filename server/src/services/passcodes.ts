@@ -58,7 +58,8 @@ export function newPasscodeState(hmac: string, now: Date): PasscodeState {
 
 /**
  * The state after replacing the passcode at `now`, or undefined when the 60-second cooldown
- * (from the latest send) or the cap of 5 sends in the past hour holds it back.
+ * (from the latest send, 60 s itself included) or the cap of 5 sends in the past hour holds it
+ * back.
  */
 export function replacedPasscodeState(
   state: PasscodeState,
@@ -66,17 +67,18 @@ export function replacedPasscodeState(
   now: Date,
 ): PasscodeState | undefined {
   const t = now.getTime();
-  const recent = state.sentAt.filter((sent) => t - sent.getTime() < HOUR_MS);
+  // A send exactly an hour ago still counts as in the past hour.
+  const recent = state.sentAt.filter((sent) => t - sent.getTime() <= HOUR_MS);
   const latest = recent.at(-1);
-  if (latest && t - latest.getTime() < PASSCODE_RULES.resendCooldownMs) return undefined;
+  if (latest && t - latest.getTime() <= PASSCODE_RULES.resendCooldownMs) return undefined;
   if (recent.length >= PASSCODE_RULES.maxSendsPerHour) return undefined;
   return { hmac, issuedAt: now, wrongTries: 0, sentAt: [...recent, now] };
 }
 
-/** Within 10 minutes of being sent and not burned by wrong tries. */
+/** Within 10 minutes of being sent (10:00 itself included) and not burned by wrong tries. */
 export function isPasscodeUsable(state: PasscodeState, now: Date): boolean {
   return (
-    now.getTime() - state.issuedAt.getTime() < PASSCODE_RULES.validForMs &&
+    now.getTime() - state.issuedAt.getTime() <= PASSCODE_RULES.validForMs &&
     state.wrongTries < PASSCODE_RULES.maxWrongTries
   );
 }

@@ -168,6 +168,27 @@ describe('OTP-1 a random 6-digit passcode is emailed at sign-up', () => {
     expect(await signUpServiceOf(h).usePasscode(validSignUp.email, sent[0] as string)).toBe(true);
   });
 
+  it('[OTP-1.e] resendOtp exactly 60 seconds after the last passcode still sends nothing', async () => {
+    const h = buildTestHarness();
+    await signUp(h);
+    h.clock.advance(60 * SECOND);
+
+    const res = await resend(h);
+
+    expect(res.status).toBe(202);
+    expect(passcodesSentTo(h)).toHaveLength(1);
+  });
+
+  it('[OTP-1.e] resendOtp 60 seconds and 1 millisecond after the last passcode sends a new one', async () => {
+    const h = buildTestHarness();
+    await signUp(h);
+    h.clock.advance(60 * SECOND + 1);
+
+    await resend(h);
+
+    expect(passcodesSentTo(h)).toHaveLength(2);
+  });
+
   it('[OTP-1.e] the cooldown runs from the latest passcode, not the first', async () => {
     const h = buildTestHarness();
     await signUp(h);
@@ -203,6 +224,25 @@ describe('OTP-1 a random 6-digit passcode is emailed at sign-up', () => {
     expect(passcodesSentTo(h)).toHaveLength(5);
 
     h.clock.advance(2 * SECOND);
+    await resend(h);
+    expect(passcodesSentTo(h)).toHaveLength(6);
+  });
+
+  it('[OTP-1.e] with 5 passcodes sent, a resend exactly an hour after the oldest still sends nothing; 1 ms later it sends', async () => {
+    const h = buildTestHarness();
+    await signUp(h);
+    for (let i = 0; i < 4; i += 1) {
+      h.clock.advance(AFTER_COOLDOWN);
+      await resend(h);
+    }
+    expect(passcodesSentTo(h)).toHaveLength(5);
+
+    // The oldest passcode went out 4 × 61 s ago; move to exactly one hour after it.
+    h.clock.advance(HOUR - 4 * AFTER_COOLDOWN);
+    await resend(h);
+    expect(passcodesSentTo(h)).toHaveLength(5);
+
+    h.clock.advance(1);
     await resend(h);
     expect(passcodesSentTo(h)).toHaveLength(6);
   });
