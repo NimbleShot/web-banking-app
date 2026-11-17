@@ -4,6 +4,7 @@
 //   [CT-2.c] in every diagram, every Client -> API arrow is an operation of api/openapi.yaml,
 //            and every API -> Client arrow uses a status (and error `code`) it documents
 //   [CT-2.d] mermaid-cli renders every diagram in docs/diagrams/*.md to SVG
+// `--no-render` skips CT-2.d: the diagram-vs-contract half runs in `npm run check` without Chrome.
 // The arrow convention the check relies on: the client is participant `C`, the API is `API`;
 // requests are `C->>API: POST /api/v1/...`, answers are `API-->>C: 401 PASSCODE_INVALID`.
 // Any Mermaid arrow form between the two counts (->, -->, ->>, -x, -), with or without +/-).
@@ -26,6 +27,7 @@ const CONTRACT = 'api/openapi.yaml';
 const DIR = 'docs/diagrams';
 const MERMAID_CLI = '@mermaid-js/mermaid-cli@12.2.0';
 const CHROME = process.env.PUPPETEER_EXECUTABLE_PATH ?? '/usr/bin/google-chrome';
+const RENDER = !process.argv.slice(2).includes('--no-render');
 
 /** File -> what its diagram must contain to show its error paths [CT-2.b]. */
 const DIAGRAMS = {
@@ -161,7 +163,7 @@ function checkArrows(file, diagram, contract, errorCodes) {
   if (requests === 0) fail('CT-2.c', `${file}: no C->>API request arrows`);
 }
 
-let rendered = 0;
+let checked = 0;
 const dir = mkdtempSync(join(tmpdir(), 'check-diagrams-'));
 try {
   const bundled = join(dir, 'openapi.json');
@@ -202,8 +204,9 @@ try {
   const files = readdirSync(DIR).filter((name) => name.endsWith('.md'));
   for (const file of files) {
     for (const [index, diagram] of mermaidBlocks(readFileSync(join(DIR, file), 'utf8')).entries()) {
-      rendered += 1;
+      checked += 1;
       checkArrows(file, diagram, contract, errorCodes);
+      if (!RENDER) continue;
 
       const input = join(dir, `${file.replace(/\.md$/, '')}-${index + 1}.mmd`);
       const output = input.replace(/\.mmd$/, '.svg');
@@ -231,6 +234,7 @@ if (failures.length > 0) {
   process.exitCode = 1;
 } else {
   console.log(
-    `check:diagrams: ${rendered} diagrams match ${CONTRACT} and render with ${MERMAID_CLI}`,
+    `check:diagrams: ${checked} diagrams match ${CONTRACT}` +
+      (RENDER ? ` and render with ${MERMAID_CLI}` : ' (rendering skipped: --no-render)'),
   );
 }

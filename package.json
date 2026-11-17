@@ -5,22 +5,25 @@
   "license": "MIT",
   "description": "A full-stack web bank: sign-up with a one-time passcode, a protected dashboard and money transfers.",
   "workspaces": [
-    "api"
+    "api",
+    "server"
   ],
   "engines": {
     "node": ">=24.9 <25"
   },
   "scripts": {
-    "check": "npm run format:check && npm run lint:api && npm run check:drift && npm run lint && npm run typecheck",
+    "check": "npm run format:check && npm run lint:api && npm run check:drift && npm run lint:diagrams && npm run lint && npm run typecheck && npm test",
     "check:drift": "npm run gen:api && git diff --exit-code -- api/generated/",
     "check:postman": "node scripts/check-postman.mjs",
     "format": "prettier --write . --ignore-path .gitignore --ignore-path .prettierignore",
     "format:check": "prettier --check . --ignore-path .gitignore --ignore-path .prettierignore",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p server",
     "lint:api": "redocly lint api/openapi.yaml",
     "gen:api": "npx --yes openapi-typescript@7.13.0 api/openapi.yaml -o api/generated/schema.d.ts",
-    "check:diagrams": "node scripts/check-diagrams.mjs"
+    "check:diagrams": "node scripts/check-diagrams.mjs",
+    "lint:diagrams": "node scripts/check-diagrams.mjs --no-render",
+    "test": "npm test -w server"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

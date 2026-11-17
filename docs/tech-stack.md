@@ -24,6 +24,22 @@ and system packages or binaries the project depends on. A removal deletes the ro
 | `openapi-to-postmanv2` | npx | 6.4.3 | root | P01 | `check:postman`: imports the contract the way Postman does and counts one request per operation |
 | `@mermaid-js/mermaid-cli` | npx | 12.2.0 | root | P01 | `check:diagrams`: renders the sequence diagrams in `docs/diagrams/` (run with `PUPPETEER_SKIP_DOWNLOAD=1`, so it drives the local Chrome) |
 | `google-chrome` | system | stable (`/usr/bin/google-chrome` by default) | — | P01 | The headless browser mermaid-cli renders with; another path goes in `PUPPETEER_EXECUTABLE_PATH` |
+| `express` | runtime | ^5.3 (5.3.0) | server | P02 | The HTTP server |
+| `express-openapi-validator` | runtime | ^5.6 (5.6.2) | server | P02 | Validates every request against `api/openapi.yaml`, and every response in tests ([ADR-0006](decisions/0006-contract-enforcement-and-api-conventions.md)) |
+| `pino` | runtime | ^10.4 (10.4.0) | server | P02 | JSON logs, with the Authorization and Cookie headers redacted |
+| `pino-http` | runtime | ^11.0 (11.0.0) | server | P02 | One log line per request, through the same logger |
+| `helmet` | runtime | ^8.3 (8.3.0) | server | P02 | Security headers on every answer, errors included (SEC-3) |
+| `cors` | runtime | ^2.8 (2.8.6) | server | P02 | Lets only the front-end origin (`CORS_ORIGIN`) read answers and send preflights (SEC-3) |
+| `jest` | dev | ^30.5 (30.5.2) | server | P02 | Test runner ([ADR-0005](decisions/0005-toolchain-jest-swc-commonjs.md)); `npm test` in `check` |
+| `@jest/globals` | dev | ^30.5 (30.5.2) | server | P02 | Typed `describe`/`it`/`expect` imports instead of ambient globals |
+| `@swc/jest` | dev | ^0.2.39 (0.2.39) | server | P02 | Strips TypeScript types for Jest; types are checked by `tsc` instead |
+| `@swc/core` | dev | ^1.16 (1.16.22) | server | P02 | The compiler `@swc/jest` drives |
+| `supertest` | dev | ^7.3 (7.3.2) | server | P02 | Calls the app over HTTP in tests without opening a port |
+| `tsx` | dev | ^4.23 (4.23.15) | server | P02 | `npm run dev -w server`: runs the TypeScript server and restarts it on change |
+| `@types/express` | dev | ^5.0 (5.0.6) | server | P02 | Express types |
+| `@types/node` | dev | ^24.19 (24.19.2) | server | P02 | Node 24 types |
+| `@types/supertest` | dev | ^7.2 (7.2.1) | server | P02 | Supertest types |
+| `@types/cors` | dev | ^2.8 (2.8.19) | server | P02 | `cors` types |
 
 Kinds: `dev` (devDependency) · `runtime` (dependency) · `npx` (pinned, never installed) ·
 `system` (apt package or binary on the server or CI runner).
@@ -150,6 +166,11 @@ only a **hash** of it with an expiry, count wrong attempts, and limit re-sends.
 15. `express-openapi-validator` reports only the first invalid field → pass
     `validateRequests: { allErrors: true }` for one error per field (SU-3). It answers an
     undocumented path 404 and a wrong method 405. Checked 2026-11-16 (5.6.2).
+16. `express-openapi-validator` installs response validation *after* request validation, and a body
+    parser mounted before it fails before the operation is known → the 400s and 401s it raises
+    itself, and malformed-JSON 400s, are never checked against the contract. `server/src/http/contract.ts`
+    reorders its middleware (by function name, failing at start-up if they change) so the
+    response check starts right after the operation look-up. Checked 2026-11-16 (5.6.2).
 
 ## Sources for these claims
 
