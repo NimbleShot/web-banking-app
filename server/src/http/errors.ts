@@ -1,6 +1,7 @@
 // Turns every error into an application/problem+json answer from the contract's catalogue.
 import type { ErrorRequestHandler, RequestHandler } from 'express';
 import { error as ValidatorError } from 'express-openapi-validator';
+import { MAX_PASSWORD_BYTES } from './contract';
 import { type FieldError, type Problem, problem, sendProblem, validationProblem } from './problem';
 
 const notFoundProblem = (): Problem => problem(404, 'NOT_FOUND', 'Not found');
@@ -24,12 +25,17 @@ export function fieldOf(path: string): string {
   return property.length > 0 ? property.join('.') : location;
 }
 
+/** The validator names the format a value broke; the password format is the byte limit. */
+const READABLE_MESSAGES: Record<string, string> = {
+  'must match format "password"': `must be at most ${MAX_PASSWORD_BYTES} bytes in UTF-8`,
+};
+
 /** One entry per field: the first message wins (an email can break its format and its length). */
 function fieldErrors(items: { path: string; message: string }[]): FieldError[] {
   const byField = new Map<string, string>();
   for (const { path, message } of items) {
     const field = fieldOf(path);
-    if (!byField.has(field)) byField.set(field, message);
+    if (!byField.has(field)) byField.set(field, READABLE_MESSAGES[message] ?? message);
   }
   return [...byField].map(([field, message]) => ({ field, message }));
 }

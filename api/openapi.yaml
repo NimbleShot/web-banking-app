@@ -502,6 +502,9 @@ components:
           format: password
           minLength: 1
           maxLength: 72
+          description: |
+            The server also rejects a password of more than 72 bytes in UTF-8 with
+            VALIDATION_FAILED and a `password` field error.
 
     AccessToken:
       type: object

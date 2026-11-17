@@ -171,6 +171,10 @@ only a **hash** of it with an expiry, count wrong attempts, and limit re-sends.
     itself, and malformed-JSON 400s, are never checked against the contract. `server/src/http/contract.ts`
     reorders its middleware (by function name, failing at start-up if they change) so the
     response check starts right after the operation look-up. Checked 2026-11-16 (5.6.2).
+17. `@swc/jest` compiles `import * as crypto from 'node:crypto'` to a copy of the module, so
+    `jest.spyOn(crypto, 'randomInt')` patches the copy and the code under test still calls the
+    real function → in a test, spy on a Node built-in through its default import
+    (`import crypto from 'node:crypto'`), which is the module object itself. Checked 2026-11-17.
 
 ## Sources for these claims
 

@@ -3,15 +3,27 @@ import express, { type Express, type Router } from 'express';
 import helmet from 'helmet';
 import type { Logger } from 'pino';
 import { pinoHttp } from 'pino-http';
+import type { Clock } from './clock';
 import type { AppConfig } from './config';
 import { corsForFrontEnd } from './http/cors';
 import { contractMiddleware, type ResponseViolation } from './http/contract';
 import { errorHandler, notFound } from './http/errors';
+import type { Mailer } from './mail/mailer';
+import type { PendingSignUpRepository } from './repositories/pending-sign-ups';
+import type { UserRepository } from './repositories/users';
 import { createRoutes } from './routes';
+
+export type Repositories = {
+  users: UserRepository;
+  pendingSignUps: PendingSignUpRepository;
+};
 
 export type AppDeps = {
   config: AppConfig;
   logger: Logger;
+  clock: Clock;
+  mailer: Mailer;
+  repositories: Repositories;
   /** Tests only: validate every response against the contract and report the ones that break it. */
   onResponseViolation?: (violation: ResponseViolation) => void;
 };
@@ -20,7 +32,7 @@ export type AppDeps = {
  * `routes` defaults to the contract's operations; tests pass their own router to put a handler
  * behind the same pipeline.
  */
-export function createApp(deps: AppDeps, routes: Router = createRoutes()): Express {
+export function createApp(deps: AppDeps, routes: Router = createRoutes(deps)): Express {
   const app = express();
   app.disable('x-powered-by');
   app.use(pinoHttp({ logger: deps.logger }));

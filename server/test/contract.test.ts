@@ -1,22 +1,15 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from '@jest/globals';
-import { Router } from 'express';
+import { type Response as ExpressResponse, Router } from 'express';
 import request from 'supertest';
 import { contractMiddleware } from '../src/http/contract';
 import { fieldOf } from '../src/http/errors';
 import { assertNoResponseViolations, buildTestApp, takeResponseViolations } from './support/app';
+import { fieldsOf, validSignUp } from './support/sign-up';
 
 const PROBLEM_JSON = /^application\/problem\+json/;
 const BEARER = { Authorization: 'Bearer any-token' };
-const validSignUp = {
-  email: 'dana@example.com',
-  password: 'correct horse',
-  phone: '+972501234567',
-};
-
-const fieldsOf = (body: { errors?: { field: string }[] }) =>
-  (body.errors ?? []).map((error) => error.field).sort();
 
 describe('CT-4 the server enforces the contract at run time', () => {
   describe('requests that break the contract', () => {
@@ -251,6 +244,51 @@ describe('CT-4 the server enforces the contract at run time', () => {
       expect(violations).toHaveLength(1);
       expect(violations[0]).toMatchObject({ method: 'GET', path: '/api/v1/me', status: 200 });
       expect(violations[0]?.errors[0]?.message).toMatch(/not sent with res\.json/);
+    });
+
+    describe('answers with no body', () => {
+      const RESEND = '/api/v1/auth/otp/resend';
+      const resendAnswering = (answer: (res: ExpressResponse) => void) =>
+        Router().post(RESEND, (_req, res) => answer(res));
+      const post = (routes: Router, path = RESEND, body: object = { email: 'dana@example.com' }) =>
+        request(buildTestApp({ routes })).post(path).send(body);
+
+      it('[CT-4.c] a status the contract declares with no content may be sent with end()', async () => {
+        const res = await post(resendAnswering((r) => r.status(202).end()));
+
+        expect(res.status).toBe(202);
+        expect(res.text).toBe('');
+        expect(res.headers).not.toHaveProperty('content-type');
+        expect(takeResponseViolations()).toEqual([]);
+      });
+
+      it('[CT-4.c] a body sent with res.send on a no-content status is reported', async () => {
+        await post(resendAnswering((r) => r.status(202).send('queued')));
+
+        const violations = takeResponseViolations();
+        expect(violations).toHaveLength(1);
+        expect(violations[0]).toMatchObject({ method: 'POST', path: RESEND, status: 202 });
+        expect(violations[0]?.errors[0]?.message).toMatch(/not sent with res\.json/);
+      });
+
+      it('[CT-4.c] end() with no body is reported on a status that declares content', async () => {
+        const routes = Router().post('/api/v1/auth/signup', (_req, res) => {
+          res.status(202).end();
+        });
+        await post(routes, '/api/v1/auth/signup', validSignUp);
+
+        const violations = takeResponseViolations();
+        expect(violations).toHaveLength(1);
+        expect(violations[0]).toMatchObject({ path: '/api/v1/auth/signup', status: 202 });
+      });
+
+      it("[CT-4.c] end() with no body is reported on a status the operation doesn't document", async () => {
+        await post(resendAnswering((r) => r.status(200).end()));
+
+        const violations = takeResponseViolations();
+        expect(violations).toHaveLength(1);
+        expect(violations[0]).toMatchObject({ path: RESEND, status: 200 });
+      });
     });
 
     it('[CT-4.c] a reported violation fails the test that caused it', async () => {
