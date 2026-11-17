@@ -20,14 +20,17 @@ sequenceDiagram
     C->>API: POST /api/v1/auth/signup
     alt a field is invalid
         API-->>C: 400 VALIDATION_FAILED (errors per field)
+    else too many requests from this client
+        API-->>C: 429 RATE_LIMITED (Retry-After)
     else
-        API->>DB: insert pending sign-up: lowercased email,<br/>HMAC of the passcode, expires in 10 min<br/>(no password or phone yet)
-        alt unique index: the email belongs to a verified user
+        API->>DB: look up a verified user with the lowercased email
+        alt the email belongs to a verified user
             API-->>C: 409 EMAIL_TAKEN
-        else unique index: a sign-up is already pending
+        else a sign-up is already pending (less than 24 h old)
             Note over API,M: a resend: new passcode only outside<br/>the 60 s cooldown and 5 per hour cap
             API-->>C: 202 PendingSignUp (same answer as a new sign-up)
-        else inserted
+        else
+            API->>DB: insert pending sign-up: lowercased email,<br/>HMAC of the passcode (valid 10 min), kept 24 h<br/>(no password or phone yet)
             API->>M: send the 6-digit passcode
             API-->>C: 202 PendingSignUp
         end
