@@ -6,6 +6,7 @@ import request from 'supertest';
 import { contractMiddleware } from '../src/http/contract';
 import { fieldOf } from '../src/http/errors';
 import { assertNoResponseViolations, buildTestApp, takeResponseViolations } from './support/app';
+import { signedInApp } from './support/auth';
 import { fieldsOf, validSignUp } from './support/sign-up';
 
 const PROBLEM_JSON = /^application\/problem\+json/;
@@ -47,9 +48,10 @@ describe('CT-4 the server enforces the contract at run time', () => {
     it.each([12.5, '100', 0])(
       '[CT-4.a] a transfer amount of %p names the field amount',
       async (amount) => {
-        const res = await request(buildTestApp())
+        const { app, auth } = await signedInApp();
+        const res = await request(app)
           .post('/api/v1/transfers')
-          .set(BEARER)
+          .set(auth)
           .send({ toEmail: 'noa@example.com', amount });
 
         expect(res.status).toBe(400);
@@ -59,23 +61,24 @@ describe('CT-4 the server enforces the contract at run time', () => {
     );
 
     it('[CT-4.a] a query parameter out of range is named', async () => {
-      const res = await request(buildTestApp()).get('/api/v1/transactions?limit=51').set(BEARER);
+      const { app, auth } = await signedInApp();
+      const res = await request(app).get('/api/v1/transactions?limit=51').set(auth);
 
       expect(res.status).toBe(400);
       expect(fieldsOf(res.body)).toEqual(['limit']);
     });
 
     it('[CT-4.a] getMe answers a request that breaks the contract with its documented 400', async () => {
-      const app = buildTestApp();
+      const { app, auth } = await signedInApp();
 
-      const unknownParameter = await request(app).get('/api/v1/me?_=123').set(BEARER);
+      const unknownParameter = await request(app).get('/api/v1/me?_=123').set(auth);
       expect(unknownParameter.status).toBe(400);
       expect(unknownParameter.body.code).toBe('VALIDATION_FAILED');
       expect(fieldsOf(unknownParameter.body)).toEqual(['_']);
 
       const brokenBody = await request(app)
         .get('/api/v1/me')
-        .set(BEARER)
+        .set(auth)
         .set('Content-Type', 'application/json')
         .send('{"a":');
       expect(brokenBody.status).toBe(400);
@@ -207,9 +210,8 @@ describe('CT-4 the server enforces the contract at run time', () => {
     });
 
     it('[CT-4.c] a response with a missing or mistyped field is reported', async () => {
-      await request(buildTestApp({ routes: wrongMe }))
-        .get('/api/v1/me')
-        .set(BEARER);
+      const { app, auth } = await signedInApp({ routes: wrongMe });
+      await request(app).get('/api/v1/me').set(auth);
 
       const [violation, ...more] = takeResponseViolations();
       expect(more).toHaveLength(0);
@@ -223,9 +225,8 @@ describe('CT-4 the server enforces the contract at run time', () => {
       const teapot = Router().get('/api/v1/me', (_req, res) => {
         res.status(418).json({ short: 'and stout' });
       });
-      await request(buildTestApp({ routes: teapot }))
-        .get('/api/v1/me')
-        .set(BEARER);
+      const { app, auth } = await signedInApp({ routes: teapot });
+      await request(app).get('/api/v1/me').set(auth);
 
       const violations = takeResponseViolations();
       expect(violations).toHaveLength(1);
@@ -236,9 +237,8 @@ describe('CT-4 the server enforces the contract at run time', () => {
       const plain = Router().get('/api/v1/me', (_req, res) => {
         res.status(200).send('ok');
       });
-      await request(buildTestApp({ routes: plain }))
-        .get('/api/v1/me')
-        .set(BEARER);
+      const { app, auth } = await signedInApp({ routes: plain });
+      await request(app).get('/api/v1/me').set(auth);
 
       const violations = takeResponseViolations();
       expect(violations).toHaveLength(1);
@@ -292,9 +292,8 @@ describe('CT-4 the server enforces the contract at run time', () => {
     });
 
     it('[CT-4.c] a reported violation fails the test that caused it', async () => {
-      await request(buildTestApp({ routes: wrongMe }))
-        .get('/api/v1/me')
-        .set(BEARER);
+      const { app, auth } = await signedInApp({ routes: wrongMe });
+      await request(app).get('/api/v1/me').set(auth);
 
       expect(assertNoResponseViolations).toThrow(
         /broke api\/openapi\.yaml[\s\S]*GET \/api\/v1\/me -> 200/,
@@ -302,7 +301,10 @@ describe('CT-4 the server enforces the contract at run time', () => {
     });
 
     it('[CT-4.c] error answers are checked too: the response check starts before body parsing and request validation', () => {
-      const names = contractMiddleware({ onResponseViolation: () => {} }).map((fn) => fn.name);
+      const names = contractMiddleware({
+        bearerAuth: async () => false,
+        onResponseViolation: () => {},
+      }).map((fn) => fn.name);
 
       expect(names).toEqual([
         'pathParamsMiddleware',

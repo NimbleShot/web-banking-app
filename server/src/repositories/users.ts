@@ -27,6 +27,8 @@ export class DuplicateEmailError extends Error {
 
 export type UserRepository = {
   findByEmail(email: string): Promise<User | undefined>;
+  /** The user with this id, the token's `sub` (DB-1.b). */
+  findById(id: string): Promise<User | undefined>;
   /**
    * Stores a new user and returns it with its id. The store itself refuses a second user with
    * the same lowercased email by throwing DuplicateEmailError: no look-up first is needed, and
@@ -43,6 +45,7 @@ const copy = (user: User): User => structuredClone(user);
  */
 export class InMemoryUserRepository implements UserRepository {
   private readonly byEmail = new Map<string, User>();
+  private readonly emailById = new Map<string, string>();
 
   async insert(user: NewUser): Promise<User> {
     // The key and the stored field are the same lowercased value, as a unique index needs.
@@ -50,11 +53,18 @@ export class InMemoryUserRepository implements UserRepository {
     if (this.byEmail.has(email)) throw new DuplicateEmailError();
     const stored: User = { ...structuredClone(user), email, id: randomUUID() };
     this.byEmail.set(email, stored);
+    this.emailById.set(stored.id, email);
     return copy(stored);
   }
 
   async findByEmail(email: string): Promise<User | undefined> {
     const user = this.byEmail.get(email.toLowerCase());
+    return user && copy(user);
+  }
+
+  async findById(id: string): Promise<User | undefined> {
+    const email = this.emailById.get(id);
+    const user = email === undefined ? undefined : this.byEmail.get(email);
     return user && copy(user);
   }
 
