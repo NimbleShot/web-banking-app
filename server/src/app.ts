@@ -10,6 +10,7 @@ import { corsForFrontEnd } from './http/cors';
 import { contractMiddleware, type ResponseViolation } from './http/contract';
 import { errorHandler, notFound } from './http/errors';
 import type { Mailer } from './mail/mailer';
+import type { PasswordResetRepository } from './repositories/password-resets';
 import type { PendingSignUpRepository } from './repositories/pending-sign-ups';
 import type { UserRepository } from './repositories/users';
 import { createRoutes } from './routes';
@@ -19,6 +20,7 @@ import { createTokenService } from './services/tokens';
 export type Repositories = {
   users: UserRepository;
   pendingSignUps: PendingSignUpRepository;
+  passwordResets: PasswordResetRepository;
 };
 
 export type AppDeps = {

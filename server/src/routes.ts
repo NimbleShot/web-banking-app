@@ -6,6 +6,7 @@ import { problem, sendProblem } from './http/problem';
 import { createAccountService } from './services/accounts';
 import { createLoginService } from './services/login';
 import { createPasscodeService } from './services/passcodes';
+import { createPasswordResetService } from './services/password-resets';
 import { argon2PasswordHasher } from './services/passwords';
 import { ACCESS_TOKEN_TTL_SECONDS, type TokenService } from './services/tokens';
 import { createSignUpService } from './services/sign-up';
@@ -22,11 +23,20 @@ export type RouteDeps = Pick<AppDeps, 'config' | 'clock' | 'mailer' | 'repositor
  * handler runs, so handlers read `req.body` as the contract's request type.
  */
 export function createRoutes(deps: RouteDeps): Router {
+  const passcodes = createPasscodeService({ secret: deps.config.passcodeSecret });
   const signUps = createSignUpService({
     ...deps.repositories,
     mailer: deps.mailer,
     clock: deps.clock,
-    passcodes: createPasscodeService({ secret: deps.config.passcodeSecret }),
+    passcodes,
+    passwords: argon2PasswordHasher,
+  });
+  const passwordResets = createPasswordResetService({
+    users: deps.repositories.users,
+    passwordResets: deps.repositories.passwordResets,
+    mailer: deps.mailer,
+    clock: deps.clock,
+    passcodes,
     passwords: argon2PasswordHasher,
   });
   const { tokens } = deps;
@@ -82,6 +92,24 @@ export function createRoutes(deps: RouteDeps): Router {
       return;
     }
     res.json(await accessToken(outcome.user.id));
+  });
+
+  // PW-1, SEC-4: the same bodiless 202 whether or not anything was sent.
+  router.post('/api/v1/auth/password/forgot', async (req, res) => {
+    const { email } = req.body as Schemas['PasswordResetRequest'];
+    await passwordResets.request(email);
+    res.status(202).end();
+  });
+
+  // PW-1, SEC-4, SU-3: the contract has checked the password rules before this runs, so a bad
+  // password never uses up the passcode. Every failure is the same 401 as verifyOtp's.
+  router.post('/api/v1/auth/password/reset', async (req, res) => {
+    const outcome = await passwordResets.reset(req.body as Schemas['ResetPasswordRequest']);
+    if (outcome.result === 'invalid') {
+      sendProblem(res, problem(401, 'PASSCODE_INVALID', 'Wrong or expired passcode'));
+      return;
+    }
+    res.status(204).end();
   });
 
   // DB-1, DB-3: the token check has already run; the account is the token's user, nobody else's.

@@ -6,6 +6,7 @@ import { type AppConfig, DEV_CORS_ORIGIN } from '../../src/config';
 import type { ResponseViolation } from '../../src/http/contract';
 import { createLogger } from '../../src/logger';
 import { OutboxMailer } from '../../src/mail/outbox';
+import { InMemoryPasswordResetRepository } from '../../src/repositories/password-resets';
 import { InMemoryPendingSignUpRepository } from '../../src/repositories/pending-sign-ups';
 import { InMemoryUserRepository } from '../../src/repositories/users';
 import { ManualClock } from './clock';
@@ -55,15 +56,24 @@ export function buildTestHarness({
   const outbox = new OutboxMailer();
   const users = new InMemoryUserRepository();
   const pendingSignUps = new InMemoryPendingSignUpRepository();
+  const passwordResets = new InMemoryPasswordResetRepository();
   const deps: AppDeps = {
     config: testConfig(config),
     logger,
     clock,
     mailer: outbox,
-    repositories: { users, pendingSignUps },
+    repositories: { users, pendingSignUps, passwordResets },
     onResponseViolation: (violation) => violations.push(violation),
   };
-  return { app: createApp(deps, routes), deps, clock, outbox, users, pendingSignUps };
+  return {
+    app: createApp(deps, routes),
+    deps,
+    clock,
+    outbox,
+    users,
+    pendingSignUps,
+    passwordResets,
+  };
 }
 
 /** The app as production builds it, plus response validation. */

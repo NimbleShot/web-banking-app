@@ -4,6 +4,7 @@ import { systemClock } from './clock';
 import { ConfigError, loadConfig } from './config';
 import { createLogger } from './logger';
 import { OutboxMailer } from './mail/outbox';
+import { InMemoryPasswordResetRepository } from './repositories/password-resets';
 import { InMemoryPendingSignUpRepository } from './repositories/pending-sign-ups';
 import { InMemoryUserRepository } from './repositories/users';
 
@@ -18,6 +19,7 @@ function main(): void {
     repositories: {
       users: new InMemoryUserRepository(),
       pendingSignUps: new InMemoryPendingSignUpRepository(),
+      passwordResets: new InMemoryPasswordResetRepository(),
     },
   });
   // Express 5 hands a failed bind (port taken, no permission) to this callback.

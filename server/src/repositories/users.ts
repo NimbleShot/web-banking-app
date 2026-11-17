@@ -35,6 +35,8 @@ export type UserRepository = {
    * none is enough (docs/decisions/0002, 0007).
    */
   insert(user: NewUser): Promise<User>;
+  /** Replaces the user's password hash, found by email in any letter case; false if no such user. */
+  updatePasswordHash(email: string, passwordHash: string): Promise<boolean>;
 };
 
 const copy = (user: User): User => structuredClone(user);
@@ -56,6 +58,13 @@ export class InMemoryUserRepository implements UserRepository {
     this.emailById.set(stored.id, email);
     return copy(stored);
   }
+
+  updatePasswordHash: UserRepository['updatePasswordHash'] = async (email, passwordHash) => {
+    const user = this.byEmail.get(email.toLowerCase());
+    if (!user) return false;
+    user.passwordHash = passwordHash;
+    return true;
+  };
 
   async findByEmail(email: string): Promise<User | undefined> {
     const user = this.byEmail.get(email.toLowerCase());

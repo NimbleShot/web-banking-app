@@ -288,3 +288,22 @@ describe('DB-2 the balance does not change by reading it or logging in again', (
     expect((await h.users.findByEmail(validSignUp.email))?.balance).toBe(user.balance);
   });
 });
+
+describe('SEC-4 login does not reveal whether an email is registered', () => {
+  it('[SEC-4.a] an unknown email, a pending-only email and a wrong password get an identical 401 (status, body and every header but Date)', async () => {
+    const h = buildTestHarness();
+    await registerUser(h);
+    await signUp(h, { ...validSignUp, email: 'pending@example.com' });
+
+    const answers = [
+      await login(h, 'unknown@example.com', validSignUp.password),
+      await login(h, 'pending@example.com', validSignUp.password),
+      await login(h, validSignUp.email, 'the wrong password'),
+    ].map(answerOf);
+
+    const [unknown, ...others] = answers;
+    expect(unknown?.status).toBe(401);
+    expect(unknown?.body).toEqual(INVALID_CREDENTIALS);
+    for (const answer of others) expect(answer).toEqual(unknown);
+  });
+});
