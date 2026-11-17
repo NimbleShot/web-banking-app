@@ -30,6 +30,7 @@ export function testConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     corsOrigin: DEV_CORS_ORIGIN,
     jwtSecret: TEST_SECRETS.JWT_SECRET,
     passcodeSecret: TEST_SECRETS.PASSCODE_SECRET,
+    trustProxy: 0,
     ...overrides,
   };
 }

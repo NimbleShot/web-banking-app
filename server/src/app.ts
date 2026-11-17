@@ -42,6 +42,8 @@ export function createApp(deps: AppDeps, routes?: Router): Express {
   const tokens = createTokenService({ secret: deps.config.jwtSecret, clock: deps.clock });
   const app = express();
   app.disable('x-powered-by');
+  // How many proxies sit in front: the client address (SEC-2) comes from X-Forwarded-For only then.
+  app.set('trust proxy', deps.config.trustProxy);
   app.use(pinoHttp({ logger: deps.logger }));
   // Ahead of the contract, so error answers carry these headers too and the front end's
   // preflights (OPTIONS, which the contract doesn't list) are answered here (SEC-3).

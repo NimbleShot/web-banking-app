@@ -3,6 +3,7 @@ import type { AppDeps } from './app';
 import type { components } from '../../api/generated/schema';
 import { authenticatedUserId } from './http/auth';
 import { problem, sendProblem } from './http/problem';
+import { createRateLimiters } from './http/rate-limits';
 import { createAccountService } from './services/accounts';
 import { createLoginService } from './services/login';
 import { createPasscodeService } from './services/passcodes';
@@ -13,7 +14,7 @@ import { createSignUpService } from './services/sign-up';
 
 type Schemas = components['schemas'];
 
-export type RouteDeps = Pick<AppDeps, 'config' | 'clock' | 'mailer' | 'repositories'> & {
+export type RouteDeps = Pick<AppDeps, 'config' | 'clock' | 'logger' | 'mailer' | 'repositories'> & {
   /** The app's one token service, shared with the token check. */
   tokens: TokenService;
 };
@@ -50,10 +51,11 @@ export function createRoutes(deps: RouteDeps): Router {
     tokenType: 'Bearer',
     expiresIn: ACCESS_TOKEN_TTL_SECONDS,
   });
+  const limits = createRateLimiters({ clock: deps.clock, logger: deps.logger });
   const router = Router();
 
   // SU-1, SU-2, SU-3, OTP-1
-  router.post('/api/v1/auth/signup', async (req, res) => {
+  router.post('/api/v1/auth/signup', limits.email, async (req, res) => {
     const { email } = req.body as Schemas['SignUpRequest'];
     const outcome = await signUps.signUp(email);
     if (outcome.result === 'taken') {
@@ -66,7 +68,7 @@ export function createRoutes(deps: RouteDeps): Router {
 
   // OTP-1, SEC-4: the same bodiless 202 whether or not anything was sent (the contract declares
   // no content for it).
-  router.post('/api/v1/auth/otp/resend', async (req, res) => {
+  router.post('/api/v1/auth/otp/resend', limits.email, async (req, res) => {
     const { email } = req.body as Schemas['ResendOtpRequest'];
     await signUps.resend(email);
     res.status(202).end();
@@ -74,7 +76,7 @@ export function createRoutes(deps: RouteDeps): Router {
 
   // OTP-2, OTP-3, SU-2, DB-2, SEC-1: every failure is the same 401, so the answer never tells a
   // wrong passcode from an unknown, expired or already verified email.
-  router.post('/api/v1/auth/otp/verify', async (req, res) => {
+  router.post('/api/v1/auth/otp/verify', limits.credentials, async (req, res) => {
     const outcome = await signUps.verify(req.body as Schemas['VerifyOtpRequest']);
     if (outcome.result === 'invalid') {
       sendProblem(res, problem(401, 'PASSCODE_INVALID', 'Wrong or expired passcode'));
@@ -84,7 +86,7 @@ export function createRoutes(deps: RouteDeps): Router {
   });
 
   // LG-1, LG-2, SEC-4: a wrong password, an unknown email and a pending sign-up get one answer.
-  router.post('/api/v1/auth/login', async (req, res) => {
+  router.post('/api/v1/auth/login', limits.credentials, async (req, res) => {
     const { email, password } = req.body as Schemas['LoginRequest'];
     const outcome = await logins.login(email, password);
     if (outcome.result === 'invalid') {
@@ -95,7 +97,7 @@ export function createRoutes(deps: RouteDeps): Router {
   });
 
   // PW-1, SEC-4: the same bodiless 202 whether or not anything was sent.
-  router.post('/api/v1/auth/password/forgot', async (req, res) => {
+  router.post('/api/v1/auth/password/forgot', limits.email, async (req, res) => {
     const { email } = req.body as Schemas['PasswordResetRequest'];
     await passwordResets.request(email);
     res.status(202).end();
@@ -103,7 +105,7 @@ export function createRoutes(deps: RouteDeps): Router {
 
   // PW-1, SEC-4, SU-3: the contract has checked the password rules before this runs, so a bad
   // password never uses up the passcode. Every failure is the same 401 as verifyOtp's.
-  router.post('/api/v1/auth/password/reset', async (req, res) => {
+  router.post('/api/v1/auth/password/reset', limits.credentials, async (req, res) => {
     const outcome = await passwordResets.reset(req.body as Schemas['ResetPasswordRequest']);
     if (outcome.result === 'invalid') {
       sendProblem(res, problem(401, 'PASSCODE_INVALID', 'Wrong or expired passcode'));
