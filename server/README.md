@@ -24,6 +24,7 @@ value and lists every problem. [`.env.example`](.env.example) lists them all.
 | `NODE_ENV` | `development` | `development`, `test` or `production` |
 | `LOG_LEVEL` | `info` | pino level, or `silent` |
 | `CORS_ORIGIN` | `http://localhost:5173`; required in production | The front end's origin, the only one a browser may call the API from: `http(s)://host[:port]`, no path or trailing slash |
+| `TRUST_PROXY` | `0` (no proxy) | How many proxies sit in front of the server, a whole number; the rate limits tell clients apart by `X-Forwarded-For` only when it is 1 or more |
 | `JWT_SECRET` | none; required | Signs the access tokens; at least 32 bytes |
 | `PASSCODE_SECRET` | none; required | Keys the hashes of the emailed passcodes; at least 32 bytes |
 
@@ -44,7 +45,10 @@ port, so tests call the app directly.
    contract asks for it, the JSON body is parsed, and the path, query and body are validated. Any
    mismatch answers `400 VALIDATION_FAILED` with one `errors` entry per field, before a handler
    runs.
-4. The operation's route.
+4. The operation's route. Six routes first pass a per-client-address rate limit
+   ([`src/http/rate-limits.ts`](src/http/rate-limits.ts), SEC-2): login, verifyOtp and resetPassword
+   share one limit of 10 failed attempts per 15 minutes; signUp, resendOtp and requestPasswordReset
+   share one of 20 requests per hour. Both are sliding windows on the server's clock. Over a limit the answer is `429 RATE_LIMITED` with `Retry-After`.
 5. [`src/http/errors.ts`](src/http/errors.ts) turns every error into an
    `application/problem+json` answer whose `code` comes from the contract's `ErrorCode` catalogue.
    An unexpected error answers `500 INTERNAL_ERROR` with no message or stack trace; the error is

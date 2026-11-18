@@ -43,7 +43,9 @@ sequenceDiagram
     else expired (10 min), used up (5 wrong tries), or no reset asked for
         API-->>C: 401 PASSCODE_INVALID (same answer, reveals nothing)
     else correct passcode
-        API->>DB: replace the password hash, delete the reset passcode
+        API->>DB: use up the reset passcode (kept, marked used:<br/>a second request with it gets 401 PASSCODE_INVALID)
+        API->>API: hash the new password (argon2id)
+        API->>DB: replace the password hash
         Note over API: tokens issued earlier stay valid until they expire (1 hour)
         API-->>C: 204 No Content
         C->>U: go to the login page

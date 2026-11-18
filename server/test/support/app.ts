@@ -1,10 +1,15 @@
 // A fresh app per test (docs/decisions/0009), with its responses checked against the contract.
 import type { Router } from 'express';
 import type { Logger } from 'pino';
-import { createApp } from '../../src/app';
+import { type AppDeps, createApp } from '../../src/app';
 import { type AppConfig, DEV_CORS_ORIGIN } from '../../src/config';
 import type { ResponseViolation } from '../../src/http/contract';
 import { createLogger } from '../../src/logger';
+import { OutboxMailer } from '../../src/mail/outbox';
+import { InMemoryPasswordResetRepository } from '../../src/repositories/password-resets';
+import { InMemoryPendingSignUpRepository } from '../../src/repositories/pending-sign-ups';
+import { InMemoryUserRepository } from '../../src/repositories/users';
+import { ManualClock } from './clock';
 
 const violations: ResponseViolation[] = [];
 
@@ -25,6 +30,7 @@ export function testConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     corsOrigin: DEV_CORS_ORIGIN,
     jwtSecret: TEST_SECRETS.JWT_SECRET,
     passcodeSecret: TEST_SECRETS.PASSCODE_SECRET,
+    trustProxy: 0,
     ...overrides,
   };
 }
@@ -38,20 +44,42 @@ export type TestAppOptions = {
   logger?: Logger;
 };
 
-/** The app as production builds it, plus response validation. */
-export function buildTestApp({
+/**
+ * The app as production builds it, plus response validation, with its in-memory parts in reach:
+ * the outbox, a clock that moves only when the test says, and the stores.
+ */
+export function buildTestHarness({
   routes,
   config = {},
   logger = createLogger('silent'),
 }: TestAppOptions = {}) {
-  return createApp(
-    {
-      config: testConfig(config),
-      logger,
-      onResponseViolation: (violation) => violations.push(violation),
-    },
-    routes,
-  );
+  const clock = new ManualClock();
+  const outbox = new OutboxMailer();
+  const users = new InMemoryUserRepository();
+  const pendingSignUps = new InMemoryPendingSignUpRepository();
+  const passwordResets = new InMemoryPasswordResetRepository();
+  const deps: AppDeps = {
+    config: testConfig(config),
+    logger,
+    clock,
+    mailer: outbox,
+    repositories: { users, pendingSignUps, passwordResets },
+    onResponseViolation: (violation) => violations.push(violation),
+  };
+  return {
+    app: createApp(deps, routes),
+    deps,
+    clock,
+    outbox,
+    users,
+    pendingSignUps,
+    passwordResets,
+  };
+}
+
+/** The app as production builds it, plus response validation. */
+export function buildTestApp(options: TestAppOptions = {}) {
+  return buildTestHarness(options).app;
 }
 
 /** Returns the violations recorded so far and clears them. */

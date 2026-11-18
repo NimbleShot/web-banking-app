@@ -269,7 +269,11 @@ export interface components {
         };
         LoginRequest: {
             email: components["schemas"]["Email"];
-            /** Format: password */
+            /**
+             * Format: password
+             * @description The server also rejects a password of more than 72 bytes in UTF-8 with
+             *     VALIDATION_FAILED and a `password` field error.
+             */
             password: string;
         };
         AccessToken: {

@@ -26,6 +26,8 @@ export type AppConfig = {
   jwtSecret: string;
   /** Keys the passcode HMACs; at least 32 bytes. */
   passcodeSecret: string;
+  /** How many proxies sit in front of the server (Express's `trust proxy`); 0 (the default) trusts none. */
+  trustProxy: number;
 };
 
 /** Thrown when the environment can't configure the server; lists every problem at once. */
@@ -103,6 +105,17 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     if (problem) problems.push(problem);
   }
 
+  const rawTrustProxy = read('TRUST_PROXY');
+  let trustProxy = 0;
+  if (rawTrustProxy !== undefined) {
+    trustProxy = Number(rawTrustProxy);
+    if (!/^\d+$/.test(rawTrustProxy) || !Number.isSafeInteger(trustProxy)) {
+      problems.push(
+        `TRUST_PROXY must be a whole number of proxy hops, 0 or more, such as 1 (got "${rawTrustProxy}")`,
+      );
+    }
+  }
+
   const jwtSecret = requireSecret('JWT_SECRET');
   const passcodeSecret = requireSecret('PASSCODE_SECRET');
 
@@ -117,5 +130,6 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     corsOrigin,
     jwtSecret,
     passcodeSecret,
+    trustProxy,
   };
 }

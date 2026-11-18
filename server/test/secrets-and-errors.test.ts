@@ -13,8 +13,8 @@ import {
 } from '../src/config';
 import { createLogger } from '../src/logger';
 import { buildTestApp, TEST_SECRETS, testConfig } from './support/app';
+import { signedInApp } from './support/auth';
 
-const BEARER = { Authorization: 'Bearer any-token' };
 const validSignUp = {
   email: 'dana@example.com',
   password: 'correct horse',
@@ -133,9 +133,10 @@ describe('SEC-5 secrets and error details never leak', () => {
     });
 
     it('[SEC-5.c] a handler whose promise rejects answers the same 500', async () => {
-      const res = await request(buildTestApp({ routes: getMeRejecting(new Error(SECRET_MESSAGE)) }))
-        .get('/api/v1/me')
-        .set(BEARER);
+      const { app, auth } = await signedInApp({
+        routes: getMeRejecting(new Error(SECRET_MESSAGE)),
+      });
+      const res = await request(app).get('/api/v1/me').set(auth);
 
       expectInternalError(res);
     });
@@ -157,9 +158,8 @@ describe('SEC-5 secrets and error details never leak', () => {
     );
 
     it('[SEC-5.c] a promise rejected with a non-Error value answers the same 500', async () => {
-      const res = await request(buildTestApp({ routes: getMeRejecting(SECRET_MESSAGE) }))
-        .get('/api/v1/me')
-        .set(BEARER);
+      const { app, auth } = await signedInApp({ routes: getMeRejecting(SECRET_MESSAGE) });
+      const res = await request(app).get('/api/v1/me').set(auth);
 
       expectInternalError(res);
     });

@@ -3,6 +3,10 @@ import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import express, { type Request, type RequestHandler, type Response } from 'express';
 import * as OpenApiValidator from 'express-openapi-validator';
+import type { BearerAuthHandler } from './auth';
+
+/** The most UTF-8 bytes a password may have; the contract's maxLength counts characters. */
+export const MAX_PASSWORD_BYTES = 72;
 
 export const CONTRACT_PATH = resolve(__dirname, '../../../api/openapi.yaml');
 
@@ -15,19 +19,37 @@ export type ResponseViolation = {
 };
 
 export type ContractOptions = {
+  /**
+   * Checks the bearer token of every operation the contract secures. Required, so no app can be
+   * built that only checks the header is present.
+   */
+  bearerAuth: BearerAuthHandler;
   /** When set, responses are validated against the contract and violations go here. */
   onResponseViolation?: (violation: ResponseViolation) => void;
 };
 
+/** The part of the validator's request metadata the guard reads: the matched operation. */
+type MatchedOperation = { schema: { responses?: Record<string, unknown> } };
+
+/** The contract declares `status` for this operation with no content, e.g. a bodiless 202. */
+function declaresNoContent(operation: MatchedOperation, status: number): boolean {
+  const response = operation.schema.responses?.[String(status)];
+  if (typeof response !== 'object' || response === null) return false;
+  return !('$ref' in response) && !('content' in response);
+}
+
 /**
  * Tests only. The library checks a response only when it is sent with `res.json`, and never
- * checks a 5xx. Every answer to an operation is JSON, so one sent any other way (`res.send`,
- * `res.end`, `sendStatus`) is reported instead of passing unchecked.
+ * checks a 5xx. Every answer with a body is JSON, so one sent any other way (`res.send`,
+ * `res.end` with a body, `sendStatus`) is reported instead of passing unchecked. The one
+ * exception is `res.status(n).end()` with no body, for a status the contract declares with no
+ * content.
  */
 function jsonOnlyGuard(report: (violation: ResponseViolation) => void): RequestHandler {
   return function jsonOnlyGuard(req, res, next) {
     // The validator sets `openapi` on requests that matched an operation.
-    if (!(req as Request & { openapi?: unknown }).openapi) return next();
+    const operation = (req as Request & { openapi?: MatchedOperation }).openapi;
+    if (!operation) return next();
     let sentAsJson = false;
     const json = res.json;
     res.json = function (this: Response, body?: unknown) {
@@ -36,7 +58,8 @@ function jsonOnlyGuard(report: (violation: ResponseViolation) => void): RequestH
     };
     const end = res.end as (...args: unknown[]) => Response;
     res.end = function (this: Response, ...args: unknown[]) {
-      if (!sentAsJson) {
+      const noBody = args[0] === undefined || typeof args[0] === 'function';
+      if (!sentAsJson && !(noBody && declaresNoContent(operation, res.statusCode))) {
         report({
           method: req.method,
           path: req.originalUrl,
@@ -57,7 +80,8 @@ function jsonOnlyGuard(report: (violation: ResponseViolation) => void): RequestH
  *  1. look up the operation; an unknown path or method fails here (404/405)
  *  2. (tests only) start watching the response, so error answers are checked too, and report
  *     an answer that bypasses the check
- *  3. require the bearer header on operations that need one
+ *  3. check the bearer token on the operations the contract secures (its global `security`,
+ *     unless the operation overrides it); a refused token answers 401 before the body is read
  *  4. parse the JSON body
  *  5. validate path, query, headers and body; every invalid field is reported
  *
@@ -68,14 +92,15 @@ function jsonOnlyGuard(report: (violation: ResponseViolation) => void): RequestH
  * Answers with a 5xx status are never checked (the library skips them); the error handler builds
  * the only one, from the typed `problem()`.
  */
-export function contractMiddleware(options: ContractOptions = {}): RequestHandler[] {
-  const { onResponseViolation } = options;
+export function contractMiddleware(options: ContractOptions): RequestHandler[] {
+  const { onResponseViolation, bearerAuth } = options;
   // The library reads the contract on the first request; a missing file would turn every
   // request into a 500 instead of stopping the start.
   if (!existsSync(CONTRACT_PATH)) throw new Error(`The API contract is missing: ${CONTRACT_PATH}`);
   const chain = OpenApiValidator.middleware({
     apiSpec: CONTRACT_PATH,
     validateRequests: { allErrors: true },
+    validateSecurity: { handlers: { bearerAuth } },
     validateResponses: onResponseViolation
       ? {
           allErrors: true,
@@ -89,6 +114,11 @@ export function contractMiddleware(options: ContractOptions = {}): RequestHandle
           },
         }
       : false,
+    // `format: password` also limits the UTF-8 bytes, so an over-long password is reported in
+    // the same 400 as every other invalid field (SU-3.c, SU-3.d).
+    formats: {
+      password: (value: string) => Buffer.byteLength(value, 'utf8') <= MAX_PASSWORD_BYTES,
+    },
     // The contract has no file uploads: don't install the multipart parser.
     fileUploader: false,
   }) as RequestHandler[];
