@@ -3,6 +3,8 @@
 // indexes, which use its own clock, never remove a record a test still uses.
 import { afterAll, afterEach, beforeAll, describe, expect, it } from '@jest/globals';
 import { MongoMemoryReplSet } from 'mongodb-memory-server';
+import request from 'supertest';
+import { createApp } from '../src/app';
 import { ConfigError } from '../src/config';
 import { createLogger } from '../src/logger';
 import { connectMongo, type MongoStore } from '../src/repositories/mongo/models';
@@ -17,14 +19,17 @@ import {
   type NewUser,
 } from '../src/repositories/users';
 import { createPasscodeService, PASSCODE_RULES } from '../src/services/passcodes';
-import { openStorage } from '../src/storage';
-import { TEST_SECRETS, testConfig } from './support/app';
+import { mongoStorage, openStorage } from '../src/storage';
+import { buildTestHarness, TEST_SECRETS, testConfig } from './support/app';
+import { bearer, LOGIN, ME, TRANSACTIONS, TRANSFERS } from './support/auth';
 import { ManualClock } from './support/clock';
 import { runServer } from './support/run-server';
+import { SIGN_UP, validSignUp, VERIFY } from './support/sign-up';
 
 let replSet: MongoMemoryReplSet;
 let databases = 0;
-const opened: MongoStore[] = [];
+/** What each test opened, closed after it. */
+const toClose: (() => Promise<void>)[] = [];
 
 beforeAll(async () => {
   // The first run on a machine downloads the database binary (about 120 MB).
@@ -32,7 +37,7 @@ beforeAll(async () => {
 }, 180_000);
 
 afterEach(async () => {
-  await Promise.all(opened.splice(0).map((store) => store.connection.close()));
+  await Promise.all(toClose.splice(0).map((close) => close()));
 });
 
 afterAll(async () => {
@@ -45,8 +50,23 @@ const freshUri = () => replSet.getUri(`bank-test-${++databases}`);
 /** A connection to a new, empty database, its collections and indexes in place. */
 async function freshStore(uri = freshUri()): Promise<MongoStore> {
   const store = await connectMongo(uri);
-  opened.push(store);
+  toClose.push(() => store.connection.close());
   return store;
+}
+
+/**
+ * The app as production builds it on the MongoDB storage at `uri`, with the test pipeline's
+ * response checks and outbox. A second call on the same `uri` is a restarted server.
+ */
+async function mongoApp(uri: string) {
+  const storage = await mongoStorage(uri);
+  toClose.push(() => storage.close());
+  const h = buildTestHarness();
+  const clock = new ManualClock(new Date());
+  return {
+    app: createApp({ ...h.deps, clock, repositories: storage.repositories }),
+    outbox: h.outbox,
+  };
 }
 
 const newUser = (email: string, balance = 1_000_000): NewUser => ({
@@ -290,4 +310,61 @@ describe('DM-6 without a database address the server runs on in-memory storage, 
     expect(run.stderr).toContain('Could not open the MongoDB database at MONGODB_URI');
     expect(run.stdout + run.stderr).not.toContain(password);
   }, 30_000);
+});
+
+describe('DM-1 with a database address set, the app keeps its data in MongoDB', () => {
+  type App = Awaited<ReturnType<typeof mongoApp>>;
+  const { password, phone } = validSignUp;
+
+  async function signUpAndVerify(target: App, email: string): Promise<void> {
+    expect((await request(target.app).post(SIGN_UP).send({ email, password, phone })).status).toBe(
+      202,
+    );
+    const passcode = target.outbox.sentTo(email).at(-1)?.passcode;
+    const res = await request(target.app).post(VERIFY).send({ email, passcode, password, phone });
+    expect(res.status).toBe(200);
+  }
+
+  async function logIn(target: App, email: string): Promise<string> {
+    const res = await request(target.app).post(LOGIN).send({ email, password });
+    expect(res.status).toBe(200);
+    return (res.body as { accessToken: string }).accessToken;
+  }
+
+  const balanceOf = async (target: App, token: string) =>
+    ((await request(target.app).get(ME).set(bearer(token))).body as { balance: number }).balance;
+
+  const itemsOf = async (target: App, token: string) =>
+    (await request(target.app).get(TRANSACTIONS).set(bearer(token))).body as {
+      items: { counterpartyEmail: string; amount: number }[];
+    };
+
+  it('[DM-1] sign-up, verify, login, transfer and both lists work on MongoDB, and a restarted server still has the users, balances and transfer', async () => {
+    const uri = freshUri();
+    const first = await mongoApp(uri);
+    await signUpAndVerify(first, 'dana@example.com');
+    await signUpAndVerify(first, 'omer@example.com');
+    const dana = await logIn(first, 'dana@example.com');
+    const omer = await logIn(first, 'omer@example.com');
+    const [danaBefore, omerBefore] = [await balanceOf(first, dana), await balanceOf(first, omer)];
+
+    const sent = await request(first.app)
+      .post(TRANSFERS)
+      .set(bearer(dana))
+      .send({ toEmail: 'omer@example.com', amount: 1_250 });
+    expect(sent.status).toBe(201);
+    expect(sent.body).toMatchObject({ balance: danaBefore - 1_250 });
+
+    const second = await mongoApp(uri);
+    const danaAgain = await logIn(second, 'dana@example.com');
+    const omerAgain = await logIn(second, 'omer@example.com');
+    expect(await balanceOf(second, danaAgain)).toBe(danaBefore - 1_250);
+    expect(await balanceOf(second, omerAgain)).toBe(omerBefore + 1_250);
+    expect((await itemsOf(second, danaAgain)).items).toMatchObject([
+      { counterpartyEmail: 'omer@example.com', amount: -1_250 },
+    ]);
+    expect((await itemsOf(second, omerAgain)).items).toMatchObject([
+      { counterpartyEmail: 'dana@example.com', amount: 1_250 },
+    ]);
+  });
 });

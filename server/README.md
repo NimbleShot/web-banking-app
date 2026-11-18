@@ -117,8 +117,10 @@ npm run test:api                  # stops at the first failed assertion
 npm run test:api -- --keep-going  # runs every request and lists every failed assertion
 ```
 
-`test:api` starts the server on a free port with fresh secrets and the in-memory outbox, runs the
-collection with a pinned `newman@6.2.3` through `npx`, stops the server however the run ends, and
+`test:api` starts a throwaway MongoDB replica set (`mongodb-memory-server`; the first run downloads
+`mongod`), then the server on a free port with fresh secrets, the in-memory outbox and that
+database (it fails unless the server reports MongoDB storage), runs the
+collection with a pinned `newman@6.2.3` through `npx`, stops the server and the database however the run ends, and
 exits 0 when every assertion passed and 1 otherwise. It uses its own server, so it never touches one you started.
 
 To run the collection against a server you started yourself, import `postman/` into Postman or run

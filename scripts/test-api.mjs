@@ -1,12 +1,16 @@
-// Runs the Postman flow collection against a real server: starts server/src/server.ts on a
-// port the OS picks, with fresh secrets and the in-memory outbox, waits until it listens, runs
-// newman against it and always stops the server. Exits 0 when newman passed, 1 otherwise
-// (a failed assertion, a server that did not start, a spawn error).
+// Runs the Postman flow collection against a real server: starts a throwaway MongoDB replica set,
+// then server/src/server.ts on a port the OS picks, with fresh secrets, the in-memory outbox and
+// that database, waits until it listens on MongoDB, runs newman against it and always stops both.
+// Exits 0 when newman passed, 1 otherwise (a failed assertion, a server or database that did not
+// start, a spawn error).
 //
 //   npm run test:api                  stop at the first failed assertion
 //   npm run test:api -- --keep-going  run every request and list every failed assertion
 import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
+import memoryServer from 'mongodb-memory-server';
+
+const { MongoMemoryReplSet } = memoryServer;
 
 const NEWMAN = 'newman@6.2.3';
 const COLLECTION = 'server/postman/flow.postman_collection.json';
@@ -47,11 +51,13 @@ for (const [signal, code] of /** @type {const} */ ([
 }
 
 /**
- * Starts the server and resolves with its port once it logs `server listening`. The server's
- * stdout keeps being read afterwards, or a full pipe would block it.
+ * Starts the server on the database at `mongodbUri` and resolves with its port once it logs
+ * `server listening` on MongoDB. The server's stdout keeps being read afterwards, or a full pipe
+ * would block it.
+ * @param {string} mongodbUri
  * @returns {Promise<number>}
  */
-function startServer() {
+function startServer(mongodbUri) {
   return new Promise((resolve, reject) => {
     // Only what the server needs: a variable set in the caller's shell (TRUST_PROXY,
     // CORS_ORIGIN, ...) can't change the run.
@@ -65,6 +71,7 @@ function startServer() {
       MAILER: 'outbox',
       JWT_SECRET: secret(),
       PASSCODE_SECRET: secret(),
+      MONGODB_URI: mongodbUri,
     };
     server = spawn(process.execPath, ['--import', 'tsx', 'server/src/server.ts'], {
       env,
@@ -92,6 +99,11 @@ function startServer() {
         try {
           const entry = JSON.parse(line);
           if (entry.msg === 'server listening' && Number.isInteger(entry.port)) {
+            // The flow must run on the database, not on a silent fallback to memory.
+            if (entry.storage !== 'mongodb') {
+              fail(`the server listens on ${entry.storage} storage, not MongoDB`);
+              continue;
+            }
             settled = true;
             clearTimeout(timer);
             resolve(entry.port);
@@ -143,13 +155,20 @@ function runNewman(port) {
 }
 
 let exitCode = 1;
+/** @type {import('mongodb-memory-server').MongoMemoryReplSet | undefined} */
+let database;
 try {
-  const port = await startServer();
-  console.log(`test:api: server listening on port ${port}`);
+  // Transactions need a replica set. The first run on a machine downloads mongod (~120 MB).
+  database = await MongoMemoryReplSet.create({
+    replSet: { count: 1, storageEngine: 'wiredTiger' },
+  });
+  const port = await startServer(database.getUri('bank'));
+  console.log(`test:api: server listening on port ${port}, on MongoDB`);
   exitCode = await runNewman(port);
 } catch (error) {
   console.error(`test:api: ${error instanceof Error ? error.message : error}`);
 } finally {
   stopChildren();
+  await database?.stop();
 }
 process.exitCode = exitCode;
