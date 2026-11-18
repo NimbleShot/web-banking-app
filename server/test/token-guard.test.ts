@@ -10,6 +10,7 @@ import { createLogger } from '../src/logger';
 import { buildTestHarness, TEST_SECRETS } from './support/app';
 import {
   answerOf,
+  bearer,
   claimsFor,
   getMe,
   handMadeToken,
@@ -198,6 +199,27 @@ describe('DB-1 the account is protected: no access without a valid token', () =>
     );
 
     it.each(securedOperations)(
+      '[DB-1.a] %s without an Authorization header changes no transfer record and no balance',
+      async (_name, send) => {
+        const h = buildTestHarness();
+        const { token } = await storedUserWithToken(h);
+        await storedUserWithToken(h, 'omer@example.com');
+        // One transfer already made, so the record store and both balances hold something to
+        // disturb.
+        const made = await request(h.app).post(TRANSFERS).set(bearer(token)).send(transfer);
+        expect(made.status).toBe(201);
+        const stores = () => ({ users: h.users.snapshot(), records: h.transactions.snapshot() });
+        const before = stores();
+
+        const res = await send(h, {});
+
+        expect(res.status).toBe(401);
+        expect(res.body).toEqual(UNAUTHORIZED);
+        expect(stores()).toEqual(before);
+      },
+    );
+
+    it.each(securedOperations)(
       '[DB-1.a] control: with a valid token, %s reaches its handler once',
       async (_name, send) => {
         const { routes, calls } = spyRoutes();
@@ -344,6 +366,26 @@ describe('DB-1 the account is protected: no access without a valid token', () =>
         expect(calls.count).toBe(0);
       },
     );
+
+    it("[DB-1.b] getMe answers 401 like a missing token when the token's user is no longer in the store by the time the handler reads it", async () => {
+      const h = buildTestHarness();
+      const { token } = await storedUserWithToken(h);
+      const missing = await getMe(h);
+      // The token check's look-up finds the user; every later one finds none, as if the user had
+      // been removed in between.
+      const findById = h.users.findById.bind(h.users);
+      let lookUps = 0;
+      h.users.findById = async (id) => {
+        lookUps += 1;
+        return lookUps === 1 ? findById(id) : undefined;
+      };
+
+      const res = await getMe(h, `Bearer ${token}`);
+
+      expect(lookUps).toBeGreaterThanOrEqual(2);
+      expect(res.status).toBe(401);
+      expect(answerOf(res)).toEqual(answerOf(missing));
+    });
 
     it('[DB-1.b] a token one second before its expiry still works', async () => {
       const h = buildTestHarness();

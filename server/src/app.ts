@@ -12,6 +12,7 @@ import { errorHandler, notFound } from './http/errors';
 import type { Mailer } from './mail/mailer';
 import type { PasswordResetRepository } from './repositories/password-resets';
 import type { PendingSignUpRepository } from './repositories/pending-sign-ups';
+import type { TransactionRepository } from './repositories/transactions';
 import type { UserRepository } from './repositories/users';
 import { createRoutes } from './routes';
 import { createAuthenticationService } from './services/authentication';
@@ -21,6 +22,7 @@ export type Repositories = {
   users: UserRepository;
   pendingSignUps: PendingSignUpRepository;
   passwordResets: PasswordResetRepository;
+  transactions: TransactionRepository;
 };
 
 export type AppDeps = {

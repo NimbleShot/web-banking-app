@@ -8,6 +8,7 @@ import { createLogger } from '../../src/logger';
 import { OutboxMailer } from '../../src/mail/outbox';
 import { InMemoryPasswordResetRepository } from '../../src/repositories/password-resets';
 import { InMemoryPendingSignUpRepository } from '../../src/repositories/pending-sign-ups';
+import { InMemoryTransactionRepository } from '../../src/repositories/transactions';
 import { InMemoryUserRepository } from '../../src/repositories/users';
 import { ManualClock } from './clock';
 
@@ -58,12 +59,13 @@ export function buildTestHarness({
   const users = new InMemoryUserRepository();
   const pendingSignUps = new InMemoryPendingSignUpRepository();
   const passwordResets = new InMemoryPasswordResetRepository();
+  const transactions = new InMemoryTransactionRepository(users);
   const deps: AppDeps = {
     config: testConfig(config),
     logger,
     clock,
     mailer: outbox,
-    repositories: { users, pendingSignUps, passwordResets },
+    repositories: { users, pendingSignUps, passwordResets, transactions },
     onResponseViolation: (violation) => violations.push(violation),
   };
   return {
@@ -74,6 +76,7 @@ export function buildTestHarness({
     users,
     pendingSignUps,
     passwordResets,
+    transactions,
   };
 }
 
