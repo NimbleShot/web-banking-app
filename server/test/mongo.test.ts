@@ -3,16 +3,24 @@
 // indexes, which use its own clock, never remove a record a test still uses.
 import { afterAll, afterEach, beforeAll, describe, expect, it } from '@jest/globals';
 import { MongoMemoryReplSet } from 'mongodb-memory-server';
+import { ConfigError } from '../src/config';
+import { createLogger } from '../src/logger';
 import { connectMongo, type MongoStore } from '../src/repositories/mongo/models';
 import { MongoPasswordResetRepository } from '../src/repositories/mongo/password-resets';
 import { MongoPendingSignUpRepository } from '../src/repositories/mongo/pending-sign-ups';
 import { MongoTransactionRepository } from '../src/repositories/mongo/transactions';
 import { MongoUserRepository } from '../src/repositories/mongo/users';
 import { PENDING_SIGN_UP_TTL_MS } from '../src/repositories/pending-sign-ups';
-import { DuplicateEmailError, type NewUser } from '../src/repositories/users';
+import {
+  DuplicateEmailError,
+  InMemoryUserRepository,
+  type NewUser,
+} from '../src/repositories/users';
 import { createPasscodeService, PASSCODE_RULES } from '../src/services/passcodes';
-import { TEST_SECRETS } from './support/app';
+import { openStorage } from '../src/storage';
+import { TEST_SECRETS, testConfig } from './support/app';
 import { ManualClock } from './support/clock';
+import { runServer } from './support/run-server';
 
 let replSet: MongoMemoryReplSet;
 let databases = 0;
@@ -227,4 +235,59 @@ describe('DM-3 a transfer on MongoDB is one transaction', () => {
     expect(await balances()).toEqual([4_000, 11_000]);
     expect(await store.models.transactions.countDocuments()).toBe(1);
   });
+});
+
+describe('DM-6 without a database address the server runs on in-memory storage, never in production', () => {
+  it('[DM-6] the storage: memory without MONGODB_URI outside production, MongoDB with it, and production without it is refused naming the variable', async () => {
+    for (const nodeEnv of ['development', 'test'] as const) {
+      const storage = await openStorage({ nodeEnv });
+      expect(storage.kind).toBe('memory');
+      expect(storage.repositories.users).toBeInstanceOf(InMemoryUserRepository);
+    }
+
+    const refused = openStorage({ nodeEnv: 'production' });
+    await expect(refused).rejects.toBeInstanceOf(ConfigError);
+    await expect(refused).rejects.toThrow(/MONGODB_URI must be set in production/);
+
+    const storage = await openStorage({ nodeEnv: 'production', mongodbUri: freshUri() });
+    try {
+      expect(storage.kind).toBe('mongodb');
+      expect(storage.repositories.users).toBeInstanceOf(MongoUserRepository);
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it('[DM-6] logging the configuration shows the database address as [Redacted]', () => {
+    const lines: string[] = [];
+    const logger = createLogger('info', { write: (line: string) => void lines.push(line) });
+    const uri = 'mongodb://bank:a-database-password@db.example.com/bank';
+    const config = testConfig({ mongodbUri: uri });
+
+    logger.info(config, 'itself');
+    logger.info({ config }, 'as a field');
+    logger.info({ deps: { config } }, 'inside the dependencies');
+
+    expect(lines).toHaveLength(3);
+    for (const line of lines) expect(line).not.toContain('a-database-password');
+    const [itself, field, deps] = lines.map((line) => JSON.parse(line));
+    for (const logged of [itself, field.config, deps.deps.config]) {
+      expect(logged.mongodbUri).toBe('[Redacted]');
+    }
+  });
+
+  it("[DM-6] the server started with an unreachable database exits 1, never listens, and prints no part of the address's password", async () => {
+    const password = 'unreachable-database-password';
+    const run = await runServer({
+      NODE_ENV: 'development',
+      ...TEST_SECRETS,
+      // Port 1 refuses connections; the driver gives up after a second.
+      MONGODB_URI: `mongodb://bank:${password}@127.0.0.1:1/bank?serverSelectionTimeoutMS=1000`,
+    });
+
+    expect(run.status).toBe(1);
+    expect(run.stdout).not.toContain('server listening');
+    expect(run.stderr).toContain('Could not open the MongoDB database at MONGODB_URI');
+    expect(run.stdout + run.stderr).not.toContain(password);
+  }, 30_000);
 });

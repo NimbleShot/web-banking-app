@@ -1,8 +1,11 @@
 import pino, { type DestinationStream, type Logger } from 'pino';
 import type { LogLevel } from './config';
 
-/** Where AppConfig's secrets sit in a log object: the config itself, `{ config }`, `{ deps }`. */
-const SECRET_PATHS = ['jwtSecret', 'passcodeSecret'].flatMap((key) => [
+/**
+ * Where AppConfig's secrets sit in a log object: the config itself, `{ config }`, `{ deps }`. The
+ * database address counts as one: it can carry a password.
+ */
+const SECRET_PATHS = ['jwtSecret', 'passcodeSecret', 'mongodbUri'].flatMap((key) => [
   key,
   `config.${key}`,
   `deps.config.${key}`,

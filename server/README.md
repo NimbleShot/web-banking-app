@@ -13,6 +13,10 @@ node -p "require('node:crypto').randomBytes(32).toString('base64')"
 npm run dev -w server         # http://localhost:3000, restarts on change
 ```
 
+Without `MONGODB_URI` the server keeps its data in memory, lost on every restart; the start-up
+log line says which storage it uses (`"storage":"memory"` or `"mongodb"`). Production requires a
+MongoDB replica set ([ADR-0013](../docs/decisions/0013-mongodb-storage-layout-and-atomic-steps.md)).
+
 ## Configuration
 
 Read once from environment variables at start-up; the server refuses to start with an invalid
@@ -26,6 +30,7 @@ value and lists every problem. [`.env.example`](.env.example) lists them all.
 | `CORS_ORIGIN` | `http://localhost:5173`; required in production | The front end's origin, the only one a browser may call the API from: `http(s)://host[:port]`, no path or trailing slash |
 | `TRUST_PROXY` | `0` (no proxy) | How many proxies sit in front of the server, a whole number; the rate limits tell clients apart by `X-Forwarded-For` only when it is 1 or more |
 | `MAILER` | `outbox` | How passcodes are sent. Only `outbox` exists: it keeps them in memory, and the server refuses to start with it when `NODE_ENV` is `production` (until a real mailer exists, there is no production start) |
+| `MONGODB_URI` | none: in-memory storage; required in production | The MongoDB connection string. It needs a replica set (Atlas is one) for the transfer's transaction. Never logged: it can carry a password |
 | `JWT_SECRET` | none; required | Signs the access tokens; at least 32 bytes |
 | `PASSCODE_SECRET` | none; required | Keys the hashes of the emailed passcodes; at least 32 bytes |
 

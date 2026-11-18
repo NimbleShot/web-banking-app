@@ -33,6 +33,11 @@ export type AppConfig = {
   passcodeSecret: string;
   /** How many proxies sit in front of the server (Express's `trust proxy`); 0 (the default) trusts none. */
   trustProxy: number;
+  /**
+   * The MongoDB connection string; unset means in-memory storage, which production refuses
+   * (docs/decisions/0013). It can carry a password, so it is redacted in logs and never echoed.
+   */
+  mongodbUri?: string;
 };
 
 /** Thrown when the environment can't configure the server; lists every problem at once. */
@@ -128,6 +133,9 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
 
   const jwtSecret = requireSecret('JWT_SECRET');
   const passcodeSecret = requireSecret('PASSCODE_SECRET');
+  // Optional; production without it is refused when the server opens its storage
+  // (src/storage.ts), after the mailer's own check.
+  const mongodbUri = read('MONGODB_URI');
 
   // A missing secret has always recorded a problem; testing it here narrows its type.
   if (problems.length > 0 || jwtSecret === undefined || passcodeSecret === undefined) {
@@ -142,5 +150,6 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     jwtSecret,
     passcodeSecret,
     trustProxy,
+    mongodbUri,
   };
 }
