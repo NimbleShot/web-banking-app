@@ -76,6 +76,7 @@ TX-6..8 are implied by the worksheet rather than written in it.
 | SEC-3 | CORS allows only the app's own front-end origin; security headers are set | A request from another origin is refused; helmet headers present |
 | SEC-4 | Errors don't reveal whether an email is registered (login, resend) | Same response for unknown email and wrong password |
 | SEC-5 | Secrets, passwords, OTPs and tokens never appear in logs or responses | Log and response review in tests finds none |
+| SEC-6 | A client that hangs up before the answer still counts against the email limit (phase 3) | Requests abandoned mid-way count like answered ones; only the limiter's own 429 is given back |
 
 ### Contract (phases 1–2)
 | ID | Requirement | Acceptance check |
@@ -84,6 +85,16 @@ TX-6..8 are implied by the worksheet rather than written in it.
 | CT-2 | Sequence diagrams for the main flows | Mermaid diagrams for sign-up + OTP, login and transfer render on GitHub |
 | CT-3 | The phase-1 product decisions are recorded | An accepted ADR for each open decision 1–8 (§4) |
 | CT-4 | The server enforces the contract at run time (phase 2) | A request that breaks it gets 400 with an error per field; an unknown path or method gets 404 `NOT_FOUND`; every response in the tests is validated against it |
+
+### MongoDB (phase 3)
+| ID | Requirement | Acceptance check |
+|----|-------------|------------------|
+| DM-1 | With a database address set, the app keeps its data in MongoDB | The flow from sign-up to transfer works on the database, and a restarted server still knows the users and their transfers |
+| DM-2 | The database refuses a second user for one email | Two inserts racing for one email leave one user; the other gets the duplicate-email error |
+| DM-3 | A transfer on MongoDB is one transaction | A write that fails midway leaves both balances and the records unchanged; two simultaneous transfers can't overdraw |
+| DM-4 | The passcode rules hold on MongoDB under concurrent requests | Wrong tries sent at once all count; resends sent at once store one passcode; a pending sign-up older than 24 hours counts as absent; a reset passcode works once |
+| DM-5 | The storage layout is documented in Swagger | The contract's description lists the collections, their keys, fields and indexes, and lints clean |
+| DM-6 | Without a database address the server runs on in-memory storage, never in production | Development starts on memory; production without an address is refused, naming the variable; an unreachable database stops start-up with an error that never shows the address's password |
 
 ### Reserved prefixes (minted when their phase is specified)
 `DM` Mongo (phase 3) · `DP` deployment (6) · `UX` Figma and theme (4, 5) · `RT` realtime (7) ·
