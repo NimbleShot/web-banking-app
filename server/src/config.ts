@@ -6,6 +6,9 @@ const LOG_LEVELS = ['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'
 
 export type NodeEnv = (typeof NODE_ENVS)[number];
 export type LogLevel = (typeof LOG_LEVELS)[number];
+/** How passcodes are sent. Only the in-memory outbox exists until the real email API (P06a). */
+const MAILERS = ['outbox'] as const;
+export type MailerKind = (typeof MAILERS)[number];
 
 /** The front end's origin outside production when CORS_ORIGIN is unset: the Vite dev server. */
 export const DEV_CORS_ORIGIN = 'http://localhost:5173';
@@ -22,6 +25,8 @@ export type AppConfig = {
   logLevel: LogLevel;
   /** The one origin allowed to call the API from a browser (SEC-3). */
   corsOrigin: string;
+  /** How passcodes are sent; `outbox` keeps them in memory and is refused in production (SEC-5.d). */
+  mailer: MailerKind;
   /** Signs and verifies access tokens (HS256); at least 32 bytes. */
   jwtSecret: string;
   /** Keys the passcode HMACs; at least 32 bytes. */
@@ -105,6 +110,11 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     if (problem) problems.push(problem);
   }
 
+  // The in-memory outbox is refused in production when the server builds its mailer
+  // (src/mail/create-mailer.ts, SEC-5.d), not here: this only checks the value.
+  const mailer = read('MAILER') ?? 'outbox';
+  if (!oneOf(mailer, MAILERS)) problems.push(`MAILER must be one of ${MAILERS.join(', ')}`);
+
   const rawTrustProxy = read('TRUST_PROXY');
   let trustProxy = 0;
   if (rawTrustProxy !== undefined) {
@@ -128,6 +138,7 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     nodeEnv: nodeEnv as NodeEnv,
     logLevel: logLevel as LogLevel,
     corsOrigin,
+    mailer: mailer as MailerKind,
     jwtSecret,
     passcodeSecret,
     trustProxy,

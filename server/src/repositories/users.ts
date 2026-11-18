@@ -60,21 +60,35 @@ export class InMemoryUserRepository implements UserRepository {
   }
 
   updatePasswordHash: UserRepository['updatePasswordHash'] = async (email, passwordHash) => {
-    const user = this.byEmail.get(email.toLowerCase());
+    const user = this.storedByEmail(email);
     if (!user) return false;
     user.passwordHash = passwordHash;
     return true;
   };
 
   async findByEmail(email: string): Promise<User | undefined> {
-    const user = this.byEmail.get(email.toLowerCase());
+    const user = this.storedByEmail(email);
     return user && copy(user);
   }
 
   async findById(id: string): Promise<User | undefined> {
-    const email = this.emailById.get(id);
-    const user = email === undefined ? undefined : this.byEmail.get(email);
+    const user = this.storedById(id);
     return user && copy(user);
+  }
+
+  /**
+   * The stored user itself, not a copy, found by id. Outside this class it exists for the
+   * in-memory transfer step only (repositories/transactions.ts), which changes balances in place
+   * with no `await` in between; everything else gets copies through the interface.
+   */
+  storedById(id: string): User | undefined {
+    const email = this.emailById.get(id);
+    return email === undefined ? undefined : this.byEmail.get(email);
+  }
+
+  /** The stored user itself, not a copy, found by email in any letter case; for the transfer step only (see storedById). */
+  storedByEmail(email: string): User | undefined {
+    return this.byEmail.get(email.toLowerCase());
   }
 
   /** Copies of every stored user, for inspection. */

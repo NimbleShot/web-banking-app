@@ -76,6 +76,22 @@ function jsonOnlyGuard(report: (violation: ResponseViolation) => void): RequestH
 }
 
 /**
+ * Mounted on each operation with a number in its query, after the contract chain: a query value
+ * the validator turned into a number must be a finite one. The validator reads 'Infinity' or
+ * '1e400' as Infinity and then skips `minimum` and `maximum`, so `limit=Infinity` would pass
+ * `maximum: 50`. Raw query values are strings, so a number here can only come from a parameter
+ * the operation declares as integer or number. The answer is the validator's own 400, one entry
+ * per such field.
+ */
+export const finiteQueryNumbers: RequestHandler = function finiteQueryNumbers(req, _res, next) {
+  const errors = Object.entries(req.query as Record<string, unknown>)
+    .filter(([, value]) => typeof value === 'number' && !Number.isFinite(value))
+    .map(([name]) => ({ path: `/query/${name}`, message: 'must be a finite number' }));
+  if (errors.length === 0) return next();
+  next(new OpenApiValidator.error.BadRequest({ path: req.path, errors }));
+};
+
+/**
  * The request pipeline that enforces the contract, in this order:
  *  1. look up the operation; an unknown path or method fails here (404/405)
  *  2. (tests only) start watching the response, so error answers are checked too, and report

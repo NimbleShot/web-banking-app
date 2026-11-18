@@ -6,6 +6,9 @@ import { type FieldError, type Problem, problem, sendProblem, validationProblem 
 
 const notFoundProblem = (): Problem => problem(404, 'NOT_FOUND', 'Not found');
 
+/** The one 401 UNAUTHORIZED: no valid token, or its user is gone (components.responses.Unauthorized). */
+export const unauthorizedProblem = (): Problem => problem(401, 'UNAUTHORIZED', 'Sign in required');
+
 /** Last route: nothing answered the request. */
 export const notFound: RequestHandler = (_req, res) => {
   sendProblem(res, notFoundProblem());
@@ -53,9 +56,7 @@ function toProblem(error: unknown): Problem {
   if (error instanceof ValidatorError.UnsupportedMediaType) {
     return validationProblem([{ field: 'body', message: 'must be application/json' }]);
   }
-  if (error instanceof ValidatorError.Unauthorized) {
-    return problem(401, 'UNAUTHORIZED', 'Sign in required');
-  }
+  if (error instanceof ValidatorError.Unauthorized) return unauthorizedProblem();
   if (
     error instanceof ValidatorError.NotFound ||
     error instanceof ValidatorError.MethodNotAllowed

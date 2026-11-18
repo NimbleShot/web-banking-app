@@ -2,7 +2,9 @@ import { Router } from 'express';
 import type { AppDeps } from './app';
 import type { components } from '../../api/generated/schema';
 import { authenticatedUserId } from './http/auth';
-import { problem, sendProblem } from './http/problem';
+import { finiteQueryNumbers } from './http/contract';
+import { unauthorizedProblem } from './http/errors';
+import { type Problem, problem, sendProblem } from './http/problem';
 import { createRateLimiters } from './http/rate-limits';
 import { createAccountService } from './services/accounts';
 import { createLoginService } from './services/login';
@@ -11,8 +13,29 @@ import { createPasswordResetService } from './services/password-resets';
 import { argon2PasswordHasher } from './services/passwords';
 import { ACCESS_TOKEN_TTL_SECONDS, type TokenService } from './services/tokens';
 import { createSignUpService } from './services/sign-up';
+import { type SendOutcome, type Transaction, createTransferService } from './services/transfers';
 
 type Schemas = components['schemas'];
+
+/** createTransfer's refusals: the contract's 422 examples, and a 401 if the sender is gone. */
+function refusal(result: Exclude<SendOutcome['result'], 'sent'>): Problem {
+  switch (result) {
+    case 'unknown-sender':
+      // The token's user was there at the token check and is gone now: the same 401.
+      return unauthorizedProblem();
+    case 'self-transfer':
+      return problem(422, 'SELF_TRANSFER', "You can't send money to yourself");
+    case 'recipient-not-found':
+      return problem(422, 'RECIPIENT_NOT_FOUND', 'No user with that email');
+    case 'insufficient-funds':
+      return problem(422, 'INSUFFICIENT_FUNDS', 'Insufficient funds');
+  }
+}
+
+const transactionBody = (transaction: Transaction): Schemas['Transaction'] => ({
+  ...transaction,
+  createdAt: transaction.createdAt.toISOString(),
+});
 
 export type RouteDeps = Pick<AppDeps, 'config' | 'clock' | 'logger' | 'mailer' | 'repositories'> & {
   /** The app's one token service, shared with the token check. */
@@ -50,6 +73,10 @@ export function createRoutes(deps: RouteDeps): Router {
     accessToken: await tokens.sign(userId),
     tokenType: 'Bearer',
     expiresIn: ACCESS_TOKEN_TTL_SECONDS,
+  });
+  const transfers = createTransferService({
+    transactions: deps.repositories.transactions,
+    clock: deps.clock,
   });
   const limits = createRateLimiters({ clock: deps.clock, logger: deps.logger });
   const router = Router();
@@ -119,7 +146,7 @@ export function createRoutes(deps: RouteDeps): Router {
     const user = await accounts.getAccount(authenticatedUserId(res));
     if (!user) {
       // The token's user was there at the token check and is gone now: the same 401.
-      sendProblem(res, problem(401, 'UNAUTHORIZED', 'Sign in required'));
+      sendProblem(res, unauthorizedProblem());
       return;
     }
     const body: Schemas['Account'] = {
@@ -130,6 +157,40 @@ export function createRoutes(deps: RouteDeps): Router {
       createdAt: user.createdAt.toISOString(),
     };
     res.json(body);
+  });
+
+  // DB-3, TX-4, TX-5, DB-1: the token user's transfers, sent and received, newest first, each
+  // amount signed from their side. Not rate-limited (docs/decisions/0011).
+  router.get('/api/v1/transactions', finiteQueryNumbers, async (req, res) => {
+    // The contract has checked 1 to 50, finiteQueryNumbers that it is finite, and the default 20
+    // is filled in.
+    const { limit } = req.query as { limit?: unknown };
+    if (typeof limit !== 'number') throw new Error('The contract did not fill in limit');
+    const items = await transfers.list(authenticatedUserId(res), limit);
+    if (!items) {
+      // The token's user was there at the token check and is gone now: the same 401.
+      sendProblem(res, unauthorizedProblem());
+      return;
+    }
+    const body: Schemas['TransactionList'] = { items: items.map(transactionBody) };
+    res.json(body);
+  });
+
+  // TX-1..TX-8, DB-1: the sender is the token's user; the body names only the recipient and the
+  // amount (the contract refuses any other field). The store's one step checks self, recipient
+  // and funds in that order and moves the money. Not rate-limited (docs/decisions/0011).
+  router.post('/api/v1/transfers', async (req, res) => {
+    const { toEmail, amount } = req.body as Schemas['CreateTransferRequest'];
+    const outcome = await transfers.send(authenticatedUserId(res), toEmail, amount);
+    if (outcome.result !== 'sent') {
+      sendProblem(res, refusal(outcome.result));
+      return;
+    }
+    const body: Schemas['TransferResult'] = {
+      transaction: transactionBody(outcome.transaction),
+      balance: outcome.balance,
+    };
+    res.status(201).json(body);
   });
 
   return router;

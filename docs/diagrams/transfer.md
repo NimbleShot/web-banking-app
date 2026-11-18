@@ -25,28 +25,34 @@ sequenceDiagram
     else
         Note over API: sender = the token's sub, never a request field
         API->>DB: startTransaction
-        API->>DB: find verified user by toEmail
-        alt no such user, or the user is pending
+        API->>DB: find the sender by the token's sub
+        alt the sender is gone since the token check
             API->>DB: abortTransaction
-            API-->>C: 422 RECIPIENT_NOT_FOUND
-        else the recipient is the sender
-            API->>DB: abortTransaction
-            API-->>C: 422 SELF_TRANSFER
+            API-->>C: 401 UNAUTHORIZED
         else
-            API->>DB: debit sender only if balance >= amount
-            alt no document matched (balance too low)
-                API->>DB: abortTransaction (rollback)
-                API-->>C: 422 INSUFFICIENT_FUNDS
-            else debited
-                API->>DB: credit the recipient
-                API->>DB: insert the transaction record
-                alt any write fails
-                    API->>DB: abortTransaction (rollback: debit, credit and record undone)
-                    API-->>C: 500 INTERNAL_ERROR
-                else all three written
-                    API->>DB: commitTransaction
-                    API-->>C: 201 TransferResult (record, new balance)
-                    C->>U: show the new balance
+            API->>DB: find verified user by toEmail (any letter case)
+            alt that user is the sender
+                API->>DB: abortTransaction
+                API-->>C: 422 SELF_TRANSFER
+            else no such user, or the user is pending
+                API->>DB: abortTransaction
+                API-->>C: 422 RECIPIENT_NOT_FOUND
+            else
+                API->>DB: debit sender only if balance >= amount
+                alt no document matched (balance too low)
+                    API->>DB: abortTransaction (rollback)
+                    API-->>C: 422 INSUFFICIENT_FUNDS
+                else debited
+                    API->>DB: credit the recipient
+                    API->>DB: insert the transaction record
+                    alt any write fails
+                        API->>DB: abortTransaction (rollback: debit, credit and record undone)
+                        API-->>C: 500 INTERNAL_ERROR
+                    else all three written
+                        API->>DB: commitTransaction
+                        API-->>C: 201 TransferResult (record, new balance)
+                        C->>U: show the new balance
+                    end
                 end
             end
         end

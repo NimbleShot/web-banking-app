@@ -1,5 +1,3 @@
-import { spawn } from 'node:child_process';
-import { resolve } from 'node:path';
 import { describe, expect, it } from '@jest/globals';
 import { Router } from 'express';
 import type { Logger } from 'pino';
@@ -13,6 +11,7 @@ import {
 } from '../src/config';
 import { createLogger } from '../src/logger';
 import { buildTestApp, TEST_SECRETS, testConfig } from './support/app';
+import { runServer } from './support/run-server';
 import { signedInApp } from './support/auth';
 
 const validSignUp = {
@@ -92,35 +91,6 @@ function configErrorFor(environment: NodeJS.ProcessEnv): ConfigError {
 
 const SECRETS = ['JWT_SECRET', 'PASSCODE_SECRET'] as const;
 const bytes = (value: string) => Buffer.byteLength(value, 'utf8');
-
-type Run = { status: number | null; stdout: string; stderr: string };
-
-/** Runs the real entry point (src/server.ts) with only `variables` set; it must exit by itself. */
-function runServer(variables: NodeJS.ProcessEnv): Promise<Run> {
-  return new Promise((done, fail) => {
-    const child = spawn(process.execPath, ['--import', 'tsx', 'src/server.ts'], {
-      cwd: resolve(__dirname, '..'),
-      env: {
-        PATH: process.env.PATH,
-        HOME: process.env.HOME,
-        TMPDIR: process.env.TMPDIR,
-        PORT: '0',
-        NODE_ENV: 'development',
-        LOG_LEVEL: 'info',
-        ...variables,
-      },
-      // A server that starts listens forever: it is killed here, and the test fails on its
-      // status. Generous, so a cold machine compiling the TypeScript doesn't hit it.
-      timeout: 20000,
-    });
-    let stdout = '';
-    let stderr = '';
-    child.stdout.setEncoding('utf8').on('data', (chunk: string) => (stdout += chunk));
-    child.stderr.setEncoding('utf8').on('data', (chunk: string) => (stderr += chunk));
-    child.on('error', fail);
-    child.on('close', (status) => done({ status, stdout, stderr }));
-  });
-}
 
 describe('SEC-5 secrets and error details never leak', () => {
   describe('an unexpected error in a handler', () => {
@@ -325,8 +295,12 @@ describe('SEC-5 secrets and error details never leak', () => {
       const shortPasscode = 'short-passcode-secret';
 
       const [missing, short] = await Promise.all([
-        runServer({}),
-        runServer({ JWT_SECRET: TEST_SECRETS.JWT_SECRET, PASSCODE_SECRET: shortPasscode }),
+        runServer({ NODE_ENV: 'development' }),
+        runServer({
+          NODE_ENV: 'development',
+          JWT_SECRET: TEST_SECRETS.JWT_SECRET,
+          PASSCODE_SECRET: shortPasscode,
+        }),
       ]);
 
       expect(missing.status).toBe(1);

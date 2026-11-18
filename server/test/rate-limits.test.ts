@@ -10,6 +10,8 @@ import {
   login,
   LOGIN,
   registerUser,
+  TRANSACTIONS,
+  TRANSFERS,
 } from './support/auth';
 import {
   FORGOT,
@@ -578,6 +580,27 @@ describe('SEC-2 what the limiters sit in front of', () => {
     const found = await statuses(60, () => getMe(h, bearer(token).Authorization));
 
     expect(found).toEqual(all(60, 200));
+  });
+
+  it('[SEC-2.a] listTransactions and createTransfer are never limited, even after both limits are used up', async () => {
+    const h = buildTestHarness();
+    const { token } = await registerUser(h);
+    await h.users.insert(aUser('omer@example.com'));
+    await statuses(10, () => failingCredentialOps.login(h));
+    await statuses(19, (i) => emailOps.signUp(h, i)); // registerUser's sign-up was the 20th
+    expectRateLimited(await failingCredentialOps.login(h), CREDENTIAL_WINDOW_SECONDS);
+    expectRateLimited(await emailOps.signUp(h, 99), EMAIL_WINDOW_SECONDS);
+
+    const listed = await statuses(60, () => request(h.app).get(TRANSACTIONS).set(bearer(token)));
+    const sent = await statuses(60, () =>
+      request(h.app)
+        .post(TRANSFERS)
+        .set(bearer(token))
+        .send({ toEmail: 'omer@example.com', amount: 1 }),
+    );
+
+    expect(listed).toEqual(all(60, 200));
+    expect(sent).toEqual(all(60, 201));
   });
 
   it('[SEC-2.d] a preflight from the front end is not counted against either limit', async () => {

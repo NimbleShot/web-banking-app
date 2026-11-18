@@ -23,7 +23,8 @@
     "gen:api": "npx --yes openapi-typescript@7.13.0 api/openapi.yaml -o api/generated/schema.d.ts",
     "check:diagrams": "node scripts/check-diagrams.mjs",
     "lint:diagrams": "node scripts/check-diagrams.mjs --no-render",
-    "test": "npm test -w server"
+    "test": "npm test -w server",
+    "test:api": "node scripts/test-api.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

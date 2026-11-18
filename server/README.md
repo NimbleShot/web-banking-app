@@ -25,12 +25,35 @@ value and lists every problem. [`.env.example`](.env.example) lists them all.
 | `LOG_LEVEL` | `info` | pino level, or `silent` |
 | `CORS_ORIGIN` | `http://localhost:5173`; required in production | The front end's origin, the only one a browser may call the API from: `http(s)://host[:port]`, no path or trailing slash |
 | `TRUST_PROXY` | `0` (no proxy) | How many proxies sit in front of the server, a whole number; the rate limits tell clients apart by `X-Forwarded-For` only when it is 1 or more |
+| `MAILER` | `outbox` | How passcodes are sent. Only `outbox` exists: it keeps them in memory, and the server refuses to start with it when `NODE_ENV` is `production` (until a real mailer exists, there is no production start) |
 | `JWT_SECRET` | none; required | Signs the access tokens; at least 32 bytes |
 | `PASSCODE_SECRET` | none; required | Keys the hashes of the emailed passcodes; at least 32 bytes |
 
 A start-up error names a missing or short secret but never shows its value, and a log line
 shows the configuration's secrets as `[Redacted]`. Generate each secret with the command under
 [Run it](#run-it), separately for each variable and each environment.
+
+## The test outbox route
+
+`GET /__test/outbox?email=dana@example.com` answers the latest passcode sent to that email, so a
+client that only has HTTP (the Postman flow, later Cypress) can finish sign-up with no inbox:
+
+```json
+{ "email": "dana@example.com", "purpose": "signup", "passcode": "012345" }
+```
+
+`purpose` is `signup` or `reset`. The email is matched in lower case. It is not part of
+`api/openapi.yaml` and needs no token.
+
+- It exists only when the mailer is the in-memory outbox and `NODE_ENV` is not `production`
+  (`MAILER=outbox`, the default). With anything else it does not exist: the path answers
+  `404 NOT_FOUND` like any unknown path. With the outbox, `NODE_ENV=production` is refused at
+  start-up.
+- No message for the email: `404 NOT_FOUND`, the same answer as an unknown path.
+- A missing, empty or repeated `email` is a mistake in the caller: `400 VALIDATION_FAILED` with
+  one `errors` entry for `email`.
+- Other methods answer `404 NOT_FOUND`; `HEAD` is answered like `GET`, without a body.
+- It sits behind the security headers and CORS like every route, and is not rate limited.
 
 ## How a request flows
 
@@ -69,3 +92,22 @@ exception is a 5xx answer, which the validator never checks; the error handler b
 the typed `problem()` helper.
 
 Handlers answer with `res.json` or `sendProblem` only.
+
+## The Postman flow
+
+[`postman/`](postman) holds a collection that signs up three users over HTTP (passcodes read
+through the test outbox route), signs in, moves money and checks the refusals, and a local
+environment (`baseUrl`). From the root:
+
+```sh
+npm run test:api                  # stops at the first failed assertion
+npm run test:api -- --keep-going  # runs every request and lists every failed assertion
+```
+
+`test:api` starts the server on a free port with fresh secrets and the in-memory outbox, runs the
+collection with a pinned `newman@6.2.3` through `npx`, stops the server however the run ends, and
+exits 0 when every assertion passed and 1 otherwise. It uses its own server, so it never touches one you started.
+
+To run the collection against a server you started yourself, import `postman/` into Postman or run
+`npx newman@6.2.3 run server/postman/flow.postman_collection.json -e
+server/postman/local.postman_environment.json`. One run makes 5 email requests and 4 failed credential checks, which the rate limits count (20 email requests per hour, 10 failed checks per 15 minutes), so against one long-lived server run it at most twice in 15 minutes and at most 4 times an hour; restarting the server resets both limits.
