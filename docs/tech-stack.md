@@ -167,7 +167,7 @@ only a **hash** of it with an expiry, count wrong attempts, and limit re-sends.
     built-in rule can pass `lint:api` and still fail `gen:api` (`operation-4xx-problem-details-rfc7807`
     misreads `allOf`). Run both after changing `redocly.yaml`.
 14. `jose` 6 is ESM-only → Jest 30 fails with "Must use import to load ES Module" even on Node
-    24.13. Add `transformIgnorePatterns: ["/node_modules/(?!jose/)"]` and let `@swc/jest`
+    24.13. Add `jose/` to `transformIgnorePatterns`' exceptions (see 18) and let `@swc/jest`
     transform `.js` too ([ADR-0010](decisions/0010-argon2id-passwords-and-jose-tokens.md)). Plain
     Node and `tsc` (`module: node20`) load it from CommonJS unaided. Checked 2026-11-16.
 15. `express-openapi-validator` reports only the first invalid field → pass
@@ -182,6 +182,13 @@ only a **hash** of it with an expiry, count wrong attempts, and limit re-sends.
     `jest.spyOn(crypto, 'randomInt')` patches the copy and the code under test still calls the
     real function → in a test, spy on a Node built-in through its default import
     (`import crypto from 'node:crypto'`), which is the module object itself. Checked 2026-11-17.
+18. The `mongodb` driver 7.8 loads Node's `os` with a dynamic `import('os')`
+    (`lib/runtime_adapters.js`), which Jest's CommonJS sandbox can't run → the handshake goes out
+    with empty client metadata and MongoDB 8 refuses it: "Missing required sub-document 'driver'
+    in the client metadata document". `transformIgnorePatterns` lets `@swc/jest` compile that one
+    file, turning the `import()` into a `require`. The experimental `runtimeAdapters: { os }`
+    client option also works but would put a test workaround into the app. Plain Node (the
+    server, `test:api`) is unaffected. Checked 2026-11-19 (7.8.0).
 
 ## Sources for these claims
 

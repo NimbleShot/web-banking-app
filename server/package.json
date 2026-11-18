@@ -61,7 +61,7 @@
       ]
     },
     "transformIgnorePatterns": [
-      "/node_modules/(?!jose/)"
+      "/node_modules/(?!(jose/|mongodb/lib/runtime_adapters\\.js$))"
     ],
     "setupFilesAfterEnv": [
       "<rootDir>/test/support/setup.ts"
