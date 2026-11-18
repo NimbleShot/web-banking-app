@@ -34,6 +34,7 @@ and system packages or binaries the project depends on. A removal deletes the ro
 | `express-rate-limit` | runtime | ^8.7 (8.7.4) | server | P02 | Per-client-address limits: 10 failed credential checks / 15 min and 20 email-sending requests / hour, in process memory ([ADR-0011](decisions/0011-per-client-rate-limits.md), SEC-2) |
 | `argon2` | runtime | ^0.45 (0.45.2) | server | P02 | Hashes passwords with argon2id, 19 MiB, t=2, p=1 (SEC-1, [ADR-0010](decisions/0010-argon2id-passwords-and-jose-tokens.md)). Native module with prebuilt binaries |
 | `jose` | runtime | ^6.2 (6.2.17) | server | P02 | Signs the HS256 access tokens ([ADR-0010](decisions/0010-argon2id-passwords-and-jose-tokens.md)). ESM-only: Jest compiles it through `transformIgnorePatterns` (gotcha 14) |
+| `mongoose` | runtime | ^9.12 (9.12.2) | server | P03 | The MongoDB repositories when `MONGODB_URI` is set: schemas, indexes and the transfer's transaction ([ADR-0013](decisions/0013-mongodb-storage-layout-and-atomic-steps.md)). Brings the `mongodb` driver 7.8 |
 | `jest` | dev | ^30.5 (30.5.2) | server | P02 | Test runner ([ADR-0005](decisions/0005-toolchain-jest-swc-commonjs.md)); `npm test` in `check` |
 | `@jest/globals` | dev | ^30.5 (30.5.2) | server | P02 | Typed `describe`/`it`/`expect` imports instead of ambient globals |
 | `@swc/jest` | dev | ^0.2.39 (0.2.39) | server | P02 | Strips TypeScript types for Jest; types are checked by `tsc` instead |
@@ -44,6 +45,8 @@ and system packages or binaries the project depends on. A removal deletes the ro
 | `@types/node` | dev | ^24.19 (24.19.2) | server | P02 | Node 24 types |
 | `@types/supertest` | dev | ^7.2 (7.2.1) | server | P02 | Supertest types |
 | `@types/cors` | dev | ^2.8 (2.8.19) | server | P02 | `cors` types |
+| `mongodb-memory-server` | dev | ^11.3 (11.3.0) | server | P03 | A throwaway MongoDB replica set for the Mongo tests and `test:api` (transactions need a replica set) |
+| `mongod` | system | 8.2.6 (`mongodb-memory-server`'s default) | — | P03 | Downloaded on first use (~120 MB) into `~/.cache/mongodb-binaries`, locally and on the CI runner |
 
 Kinds: `dev` (devDependency) · `runtime` (dependency) · `npx` (pinned, never installed) ·
 `system` (apt package or binary on the server or CI runner).
