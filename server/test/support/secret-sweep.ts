@@ -44,8 +44,9 @@ export type Secret = {
   label: string;
   value: string;
   /**
-   * `passcode`: six digits; its plain form only counts between characters that cannot continue
-   * it (not a letter or digit): digits inside a timestamp, an id or a hash don't. `hmac`: a hex
+   * `passcode`: six digits; its plain form counts when no other digit touches it (`otp012345` is
+   * a hit, digits inside a longer number are not), and it is also searched as a JSON number
+   * without its leading zeros; ids, tokens and number fields are blanked first. `hmac`: a hex
    * digest, also searched as its raw bytes.
    */
   kind?: SecretKind;
