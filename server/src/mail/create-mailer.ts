@@ -4,7 +4,7 @@ import type { Mailer } from './mailer';
 import { OutboxMailer } from './outbox';
 
 /**
- * Only the in-memory outbox exists until the real email API (P06a), so with NODE_ENV=production
+ * Only the in-memory outbox exists until a real email API is added, so with NODE_ENV=production
  * this refuses to build it: the server never starts (SEC-5.d). The message names the variable
  * and shows no secret. The switch is exhaustive: a second MAILER value fails to compile here
  * until it gets its own mailer.

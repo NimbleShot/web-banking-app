@@ -6,7 +6,7 @@ const LOG_LEVELS = ['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'
 
 export type NodeEnv = (typeof NODE_ENVS)[number];
 export type LogLevel = (typeof LOG_LEVELS)[number];
-/** How passcodes are sent. Only the in-memory outbox exists until the real email API (P06a). */
+/** How passcodes are sent. Only the in-memory outbox exists until a real email API is added. */
 const MAILERS = ['outbox'] as const;
 export type MailerKind = (typeof MAILERS)[number];
 
