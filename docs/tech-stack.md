@@ -23,6 +23,7 @@ and system packages or binaries the project depends on. A removal deletes the ro
 | `openapi-typescript` | npx | 7.13.0 | root | P01 | `gen:api`: TypeScript types from the contract. Run through `npx` because it peers TS 5 |
 | `openapi-to-postmanv2` | npx | 6.4.3 | root | P01 | `check:postman`: imports the contract the way Postman does and counts one request per operation |
 | `@mermaid-js/mermaid-cli` | npx | 12.2.0 | root | P01 | `check:diagrams`: renders the sequence diagrams in `docs/diagrams/` (run with `PUPPETEER_SKIP_DOWNLOAD=1`, so it drives the local Chrome) |
+| `newman` | npx | 6.2.3 | root | P02 | `test:api`: runs the Postman flow collection in `server/postman/` against a started server; also run in CI |
 | `google-chrome` | system | stable (`/usr/bin/google-chrome` by default) | — | P01 | The headless browser mermaid-cli renders with; another path goes in `PUPPETEER_EXECUTABLE_PATH` |
 | `express` | runtime | ^5.3 (5.3.0) | server | P02 | The HTTP server |
 | `express-openapi-validator` | runtime | ^5.6 (5.6.2) | server | P02 | Validates every request against `api/openapi.yaml`, and every response in tests ([ADR-0006](decisions/0006-contract-enforcement-and-api-conventions.md)) |

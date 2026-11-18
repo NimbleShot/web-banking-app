@@ -3,7 +3,7 @@ import { createApp } from './app';
 import { systemClock } from './clock';
 import { ConfigError, loadConfig } from './config';
 import { createLogger } from './logger';
-import { OutboxMailer } from './mail/outbox';
+import { createMailer } from './mail/create-mailer';
 import { InMemoryPasswordResetRepository } from './repositories/password-resets';
 import { InMemoryPendingSignUpRepository } from './repositories/pending-sign-ups';
 import { InMemoryTransactionRepository } from './repositories/transactions';
@@ -17,7 +17,7 @@ function main(): void {
     config,
     logger,
     clock: systemClock,
-    mailer: new OutboxMailer(),
+    mailer: createMailer(config),
     repositories: {
       users,
       pendingSignUps: new InMemoryPendingSignUpRepository(),

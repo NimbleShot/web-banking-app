@@ -1,0 +1,2265 @@
+{
+  "info": {
+    "name": "Bank API flow",
+    "description": "Signs up two users through the test-only passcode outbox (GET /__test/outbox), verifies them, signs in, moves money between them and checks the refusals. Run with `npm run test:api`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "01 Sign up A",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.collectionVariables.clear();",
+              "const run = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);",
+              "pm.collectionVariables.set('emailAsent', 'Alice-' + run + '@Example.COM');",
+              "pm.collectionVariables.set('emailBsent', 'Bob-' + run + '@Example.COM');",
+              "pm.collectionVariables.set('phoneA', '+972501234567');",
+              "pm.collectionVariables.set('phoneB', '+972521234567');",
+              "pm.collectionVariables.set('emailA', 'alice-' + run + '@example.com');",
+              "pm.collectionVariables.set('emailB', 'bob-' + run + '@example.com');",
+              "pm.collectionVariables.set('emailC', 'carol-' + run + '@example.com');",
+              "pm.collectionVariables.set('emailGhost', 'nobody-' + run + '@example.com');"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[SU-1.a] A new email answers 202 {email lowercased, status pending}, nothing more', () => {",
+              "  pm.expect(res.code).to.equal(202);",
+              "  pm.expect(body()).to.deep.equal({ email: pm.collectionVariables.get('emailA'), status: 'pending' });",
+              "});",
+              "pm.test('[SU-1.a] The answer never repeats the password or the phone', () => {",
+              "  pm.expect(res.text()).to.not.include('correct horse battery').and.to.not.include('+972');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/auth/signup",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "auth", "signup"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{emailAsent}}\",\n  \"password\": \"correct horse battery\",\n  \"phone\": \"+972501234567\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "02 Read A passcode",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[OTP-1.a] The outbox holds a six-digit sign-up passcode for A', () => {",
+              "  pm.expect(res.code).to.equal(200);",
+              "  pm.expect(body()).to.have.keys('email', 'purpose', 'passcode');",
+              "  pm.expect(body().email).to.equal(pm.collectionVariables.get('emailA'));",
+              "  pm.expect(body().purpose).to.equal('signup');",
+              "  pm.expect(body().passcode).to.match(/^\\d{6}$/);",
+              "});",
+              "if (res.code === 200) pm.collectionVariables.set('codeA', body().passcode);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/__test/outbox?email={{emailA}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["__test", "outbox"],
+          "query": [
+            {
+              "key": "email",
+              "value": "{{emailA}}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "03 Sign up A again",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[SU-1.b] A repeat sign-up for a pending email answers the same 202 body', () => {",
+              "  pm.expect(res.code).to.equal(202);",
+              "  pm.expect(body()).to.deep.equal({ email: pm.collectionVariables.get('emailA'), status: 'pending' });",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/auth/signup",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "auth", "signup"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{emailA}}\",\n  \"password\": \"correct horse battery\",\n  \"phone\": \"+972501234567\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "04 Resend A passcode at once",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[OTP-1.e] A resend inside the cooldown answers 202 with no body', () => {",
+              "  pm.expect(res.code).to.equal(202);",
+              "  pm.expect(res.text()).to.equal('');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/auth/otp/resend",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "auth", "otp", "resend"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{emailA}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "05 Read A passcode again",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[OTP-1.e] Neither the repeat sign-up nor the resend sent a new passcode', () => {",
+              "  pm.expect(res.code).to.equal(200);",
+              "  pm.expect(body().passcode).to.equal(pm.collectionVariables.get('codeA'));",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/__test/outbox?email={{emailA}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["__test", "outbox"],
+          "query": [
+            {
+              "key": "email",
+              "value": "{{emailA}}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "06 Sign up B",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[SU-1.a] Sign-up B answers 202 pending', () => {",
+              "  pm.expect(res.code).to.equal(202);",
+              "  pm.expect(body()).to.deep.equal({ email: pm.collectionVariables.get('emailB'), status: 'pending' });",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/auth/signup",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "auth", "signup"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{emailB}}\",\n  \"password\": \"correct horse battery\",\n  \"phone\": \"+972521234567\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "07 Read B passcode",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[OTP-1.a] The outbox holds a six-digit sign-up passcode for B', () => {",
+              "  pm.expect(res.code).to.equal(200);",
+              "  pm.expect(body().email).to.equal(pm.collectionVariables.get('emailB'));",
+              "  pm.expect(body().purpose).to.equal('signup');",
+              "  pm.expect(body().passcode).to.match(/^\\d{6}$/);",
+              "});",
+              "if (res.code === 200) pm.collectionVariables.set('codeB', body().passcode);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/__test/outbox?email={{emailB}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["__test", "outbox"],
+          "query": [
+            {
+              "key": "email",
+              "value": "{{emailB}}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "08 Sign up C, never verified",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[TX-3.a] Sign-up C answers 202 pending: C stays a pending sign-up for the recipient check', () => {",
+              "  pm.expect(res.code).to.equal(202);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/auth/signup",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "auth", "signup"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{emailC}}\",\n  \"password\": \"correct horse battery\",\n  \"phone\": \"+972531234567\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "09 Verify A, email in another letter case",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[OTP-2.a] The right passcode answers 200 with a one-hour Bearer token', () => {",
+              "  pm.expect(res.code).to.equal(200);",
+              "  pm.expect(body().tokenType).to.equal('Bearer');",
+              "  pm.expect(body().expiresIn).to.equal(3600);",
+              "  pm.expect(body().accessToken).to.be.a('string').and.not.empty;",
+              "});",
+              "if (res.code === 200) pm.collectionVariables.set('tokenA', body().accessToken);",
+              "pm.test('[OTP-2.b] The token is an HS256 JWT expiring one hour after it was issued', () => {",
+              "  pm.expect(res.code).to.equal(200);",
+              "  const { header, payload } = jwt(body().accessToken);",
+              "  pm.expect(header.alg).to.equal('HS256');",
+              "  pm.expect(payload.exp - payload.iat).to.equal(3600);",
+              "  pm.expect(payload.sub).to.be.a('string').and.not.empty;",
+              "  pm.collectionVariables.set('subA', payload.sub);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/auth/otp/verify",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "auth", "otp", "verify"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{emailAsent}}\",\n  \"passcode\": \"{{codeA}}\",\n  \"password\": \"correct horse battery\",\n  \"phone\": \"+972501234567\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "10 Verify A again with the used passcode",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[OTP-2.c] A passcode that was accepted once answers 401 PASSCODE_INVALID the second time', () => { pm.expect(res.code).to.equal(401); pm.expect(body()).to.include({ status: 401, code: 'PASSCODE_INVALID' }); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/auth/otp/verify",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "auth", "otp", "verify"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{emailA}}\",\n  \"passcode\": \"{{codeA}}\",\n  \"password\": \"correct horse battery\",\n  \"phone\": \"+972501234567\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "11 Verify B",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[OTP-2.a] Verifying B answers 200 with a Bearer token', () => {",
+              "  pm.expect(res.code).to.equal(200);",
+              "  pm.expect(body().tokenType).to.equal('Bearer');",
+              "});",
+              "if (res.code === 200) pm.collectionVariables.set('tokenB', body().accessToken);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/auth/otp/verify",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "auth", "otp", "verify"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{emailB}}\",\n  \"passcode\": \"{{codeB}}\",\n  \"password\": \"correct horse battery\",\n  \"phone\": \"+972521234567\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "12 Get me A with the verify token",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[DB-3.a] getMe answers 200 with exactly id, email, phone, an integer balance and createdAt (A)', () => {",
+              "  pm.expect(res.code).to.equal(200);",
+              "  pm.expect(body()).to.have.all.keys('id', 'email', 'phone', 'balance', 'createdAt');",
+              "  pm.expect(body().email).to.equal(pm.collectionVariables.get('emailA'));",
+              "  pm.expect(body().phone).to.equal(pm.collectionVariables.get('phoneA'));",
+              "  pm.expect(Number.isInteger(body().balance)).to.equal(true);",
+              "  pm.expect(body().balance).to.be.at.least(0);",
+              "  pm.expect(Number.isNaN(Date.parse(body().createdAt))).to.equal(false);",
+              "});",
+              "if (res.code === 200) { pm.collectionVariables.set('idA', body().id); pm.collectionVariables.set('balanceA0', body().balance); }",
+              "pm.test('[OTP-2.b] getMe with the verifyOtp token returns the account whose id is the token sub', () => {",
+              "  pm.expect(body().id).to.equal(pm.collectionVariables.get('subA'));",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenA}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/me",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "me"]
+        }
+      }
+    },
+    {
+      "name": "13 Get me B",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[DB-3.a] getMe answers 200 with exactly id, email, phone, an integer balance and createdAt (B)', () => {",
+              "  pm.expect(res.code).to.equal(200);",
+              "  pm.expect(body()).to.have.all.keys('id', 'email', 'phone', 'balance', 'createdAt');",
+              "  pm.expect(body().email).to.equal(pm.collectionVariables.get('emailB'));",
+              "  pm.expect(body().phone).to.equal(pm.collectionVariables.get('phoneB'));",
+              "  pm.expect(Number.isInteger(body().balance)).to.equal(true);",
+              "  pm.expect(body().balance).to.be.at.least(0);",
+              "  pm.expect(Number.isNaN(Date.parse(body().createdAt))).to.equal(false);",
+              "});",
+              "if (res.code === 200) { pm.collectionVariables.set('idB', body().id); pm.collectionVariables.set('balanceB0', body().balance); }",
+              "pm.test('[DB-1.c] B token returns B, never A: the acting user comes from the token alone', () => {",
+              "  pm.expect(body().id).to.not.equal(pm.collectionVariables.get('idA'));",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenB}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/me",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "me"]
+        }
+      }
+    },
+    {
+      "name": "14 Get me without a token",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[DB-1.a] getMe without an Authorization header answers 401 UNAUTHORIZED', () => { pm.expect(res.code).to.equal(401); pm.expect(body()).to.include({ status: 401, code: 'UNAUTHORIZED' }); });",
+              "if (res.code === 401) pm.collectionVariables.set('unauthorized', res.text());"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/me",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "me"]
+        }
+      }
+    },
+    {
+      "name": "15 Get me with a made-up token",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.request.headers.add({ key: 'Authorization', value: 'Bearer not.a.token' });"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[DB-1.b] A malformed bearer token answers 401 with the same body as a missing token', () => {",
+              "  pm.expect(res.code).to.equal(401);",
+              "  pm.expect(res.text()).to.equal(pm.collectionVariables.get('unauthorized'));",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/me",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "me"]
+        }
+      }
+    },
+    {
+      "name": "16 Login A, email in another letter case",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[LG-1.a] A verified user logs in: 200 with a one-hour Bearer token for A', () => {",
+              "  pm.expect(res.code).to.equal(200);",
+              "  pm.expect(body().tokenType).to.equal('Bearer');",
+              "  pm.expect(body().expiresIn).to.equal(3600);",
+              "  const { header, payload } = jwt(body().accessToken);",
+              "  pm.expect(header.alg).to.equal('HS256');",
+              "  pm.expect(payload.exp - payload.iat).to.equal(3600);",
+              "  pm.expect(payload.sub).to.equal(pm.collectionVariables.get('idA'));",
+              "});",
+              "if (res.code === 200) pm.collectionVariables.set('loginTokenA', body().accessToken);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/auth/login",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "auth", "login"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{emailAsent}}\",\n  \"password\": \"correct horse battery\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "17 Get me A with the login token",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[LG-1.a] The login token is for A: getMe returns the same id as before', () => {",
+              "  pm.expect(res.code).to.equal(200);",
+              "  pm.expect(body().id).to.equal(pm.collectionVariables.get('idA'));",
+              "  pm.expect(body().email).to.equal(pm.collectionVariables.get('emailA'));",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{loginTokenA}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/me",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "me"]
+        }
+      }
+    },
+    {
+      "name": "18 Login B, email in another letter case",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[LG-1.a] A verified user logs in: 200 with a one-hour Bearer token for B', () => {",
+              "  pm.expect(res.code).to.equal(200);",
+              "  pm.expect(body().tokenType).to.equal('Bearer');",
+              "  pm.expect(body().expiresIn).to.equal(3600);",
+              "  const { header, payload } = jwt(body().accessToken);",
+              "  pm.expect(header.alg).to.equal('HS256');",
+              "  pm.expect(payload.exp - payload.iat).to.equal(3600);",
+              "  pm.expect(payload.sub).to.equal(pm.collectionVariables.get('idB'));",
+              "});",
+              "if (res.code === 200) pm.collectionVariables.set('loginTokenB', body().accessToken);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/auth/login",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "auth", "login"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{emailBsent}}\",\n  \"password\": \"correct horse battery\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "19 Get me B with the login token",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[LG-1.a] The login token is for B: getMe returns the same id as before', () => {",
+              "  pm.expect(res.code).to.equal(200);",
+              "  pm.expect(body().id).to.equal(pm.collectionVariables.get('idB'));",
+              "  pm.expect(body().email).to.equal(pm.collectionVariables.get('emailB'));",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{loginTokenB}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/me",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "me"]
+        }
+      }
+    },
+    {
+      "name": "20 Login with a wrong password",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[LG-2.a] A wrong password answers 401 INVALID_CREDENTIALS', () => { pm.expect(res.code).to.equal(401); pm.expect(body()).to.include({ status: 401, code: 'INVALID_CREDENTIALS' }); });",
+              "if (res.code === 401) pm.collectionVariables.set('invalidCredentials', res.text());"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/auth/login",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "auth", "login"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{emailA}}\",\n  \"password\": \"wrong password here\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "21 Login with an unknown email",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[LG-2.a] An unknown email answers the same 401 body as a wrong password', () => {",
+              "  pm.expect(res.code).to.equal(401);",
+              "  pm.expect(res.text()).to.equal(pm.collectionVariables.get('invalidCredentials'));",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/auth/login",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "auth", "login"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{emailGhost}}\",\n  \"password\": \"correct horse battery\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "22 Login with a pending sign-up",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[LG-2.a] An email with only a pending sign-up answers the same 401 body too', () => {",
+              "  pm.expect(res.code).to.equal(401);",
+              "  pm.expect(res.text()).to.equal(pm.collectionVariables.get('invalidCredentials'));",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/auth/login",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "auth", "login"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{emailC}}\",\n  \"password\": \"correct horse battery\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "23 Login with a malformed email",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[LG-2.b] A malformed email answers 400 VALIDATION_FAILED naming the email field', () => {",
+              "  pm.expect(res.code).to.equal(400);",
+              "  pm.expect(body().code).to.equal('VALIDATION_FAILED');",
+              "  pm.expect(body().errors.map((e) => e.field)).to.include('email');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/auth/login",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "auth", "login"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"not-an-email\",\n  \"password\": \"correct horse battery\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "24 List B before any transfer",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[DB-3.b] A new user gets {items: []}', () => {",
+              "  pm.expect(res.code).to.equal(200);",
+              "  pm.expect(body()).to.deep.equal({ items: [] });",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenB}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/transactions",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "transactions"]
+        }
+      }
+    },
+    {
+      "name": "25 List with limit 0",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[DB-3.c] limit=0 answers 400 VALIDATION_FAILED', () => { pm.expect(res.code).to.equal(400); pm.expect(body()).to.include({ status: 400, code: 'VALIDATION_FAILED' }); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenB}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/transactions?limit=0",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "transactions"],
+          "query": [
+            {
+              "key": "limit",
+              "value": "0"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "26 List with limit abc",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[DB-3.c] limit=abc answers 400 VALIDATION_FAILED', () => { pm.expect(res.code).to.equal(400); pm.expect(body()).to.include({ status: 400, code: 'VALIDATION_FAILED' }); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenB}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/transactions?limit=abc",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "transactions"],
+          "query": [
+            {
+              "key": "limit",
+              "value": "abc"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "27 List with limit 51",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[DB-3.c] limit=51 answers 400 VALIDATION_FAILED', () => { pm.expect(res.code).to.equal(400); pm.expect(body()).to.include({ status: 400, code: 'VALIDATION_FAILED' }); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenB}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/transactions?limit=51",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "transactions"],
+          "query": [
+            {
+              "key": "limit",
+              "value": "51"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "28 Transfer without a token",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[DB-1.a] createTransfer without an Authorization header answers 401 UNAUTHORIZED', () => { pm.expect(res.code).to.equal(401); pm.expect(body()).to.include({ status: 401, code: 'UNAUTHORIZED' }); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/transfers",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "transfers"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"toEmail\": \"{{emailB}}\",\n  \"amount\": 100\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "29 List without a token",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[DB-1.a] listTransactions without an Authorization header answers 401, the same body as getMe', () => {",
+              "  pm.expect(res.code).to.equal(401);",
+              "  pm.expect(res.text()).to.equal(pm.collectionVariables.get('unauthorized'));",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/transactions",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "transactions"]
+        }
+      }
+    },
+    {
+      "name": "30 Transfer naming a sender in the body",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[DB-1.c] A body field that names a user is rejected with 400: the user comes from the token only', () => { pm.expect(res.code).to.equal(400); pm.expect(body()).to.include({ status: 400, code: 'VALIDATION_FAILED' }); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenA}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/transfers",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "transfers"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"toEmail\": \"{{emailB}}\",\n  \"amount\": 100,\n  \"fromEmail\": \"{{emailB}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "31 Transfer A to B, recipient email in capitals",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.collectionVariables.set('amount', 2500); pm.collectionVariables.set('toEmailCaps', pm.collectionVariables.get('emailB').toUpperCase());"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[TX-1.a] The transfer answers 201 with the transaction (recipient email, amount negated) and the sender new balance', () => {",
+              "  pm.expect(res.code).to.equal(201);",
+              "  pm.expect(body().transaction.counterpartyEmail).to.equal(pm.collectionVariables.get('emailB'));",
+              "  pm.expect(body().transaction.amount).to.equal(-Number(pm.collectionVariables.get('amount')));",
+              "  pm.expect(body().balance).to.equal(Number(pm.collectionVariables.get('balanceA0')) - Number(pm.collectionVariables.get('amount')));",
+              "});",
+              "if (res.code === 201) pm.collectionVariables.set('txId', body().transaction.id);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenA}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/transfers",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "transfers"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"toEmail\": \"{{toEmailCaps}}\",\n  \"amount\": {{amount}}\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "32 Get me A: the sender balance dropped by exactly the amount",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[TX-1.a] The sender balance dropped by exactly the amount', () => {",
+              "  pm.expect(res.code).to.equal(200);",
+              "  pm.expect(body().balance).to.equal(Number(pm.collectionVariables.get('balanceA0')) - Number(pm.collectionVariables.get('amount')));",
+              "});",
+              "if (res.code === 200 && body().balance === Number(pm.collectionVariables.get('balanceA0')) - Number(pm.collectionVariables.get('amount'))) pm.collectionVariables.set('balanceA1', body().balance);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenA}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/me",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "me"]
+        }
+      }
+    },
+    {
+      "name": "33 Get me B: the recipient balance rose by exactly the amount",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[TX-1.a] The recipient balance rose by exactly the amount', () => {",
+              "  pm.expect(res.code).to.equal(200);",
+              "  pm.expect(body().balance).to.equal(Number(pm.collectionVariables.get('balanceB0')) + Number(pm.collectionVariables.get('amount')));",
+              "});",
+              "if (res.code === 200 && body().balance === Number(pm.collectionVariables.get('balanceB0')) + Number(pm.collectionVariables.get('amount'))) pm.collectionVariables.set('balanceB1', body().balance);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenB}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/me",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "me"]
+        }
+      }
+    },
+    {
+      "name": "34 List A",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[TX-4.a] The sender list starts with the recipient email and minus the amount', () => {",
+              "  pm.expect(res.code).to.equal(200);",
+              "  pm.expect(body().items[0].counterpartyEmail).to.equal(pm.collectionVariables.get('emailB'));",
+              "  pm.expect(body().items[0].amount).to.equal(-Number(pm.collectionVariables.get('amount')));",
+              "});",
+              "pm.test('[DB-3.b] The sender list holds the one transfer, with an id, a counterparty and a date', () => {",
+              "  pm.expect(body().items).to.have.length(1);",
+              "  pm.expect(body().items[0]).to.have.all.keys('id', 'counterpartyEmail', 'amount', 'createdAt');",
+              "  pm.expect(body().items[0].id).to.equal(pm.collectionVariables.get('txId'));",
+              "});",
+              "if (res.code === 200 && body().items.length > 0) pm.collectionVariables.set('senderItemId', body().items[0].id);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenA}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/transactions",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "transactions"]
+        }
+      }
+    },
+    {
+      "name": "35 List B",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[TX-5.a] The recipient list starts with the sender email and plus the amount', () => {",
+              "  pm.expect(res.code).to.equal(200);",
+              "  pm.expect(body().items[0].counterpartyEmail).to.equal(pm.collectionVariables.get('emailA'));",
+              "  pm.expect(body().items[0].amount).to.equal(Number(pm.collectionVariables.get('amount')));",
+              "});",
+              "pm.test('[TX-5.a] The recipient item has the same id as the sender item: one record per transfer', () => {",
+              "  pm.expect(body().items[0].id).to.equal(pm.collectionVariables.get('senderItemId'));",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenB}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/transactions",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "transactions"]
+        }
+      }
+    },
+    {
+      "name": "36 Transfer more than the balance",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const balance = Number(pm.collectionVariables.get('balanceA1'));",
+              "pm.test('[TX-2.a] Precondition: the sender balance was read earlier', () => pm.expect(Number.isInteger(balance)).to.equal(true));",
+              "pm.collectionVariables.set('overdraft', Number.isInteger(balance) ? balance + 1 : 1);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[TX-2.a] An amount one agora over the balance answers 422 INSUFFICIENT_FUNDS', () => { pm.expect(res.code).to.equal(422); pm.expect(body()).to.include({ status: 422, code: 'INSUFFICIENT_FUNDS' }); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenA}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/transfers",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "transfers"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"toEmail\": \"{{emailB}}\",\n  \"amount\": {{overdraft}}\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "37 Get me A: the sender balance is unchanged",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[TX-2.a] The sender balance is unchanged', () => {",
+              "  pm.expect(res.code).to.equal(200);",
+              "  pm.expect(body().balance).to.equal(Number(pm.collectionVariables.get('balanceA1')));",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenA}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/me",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "me"]
+        }
+      }
+    },
+    {
+      "name": "38 Get me B: the recipient balance is unchanged",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[TX-2.a] The recipient balance is unchanged', () => {",
+              "  pm.expect(res.code).to.equal(200);",
+              "  pm.expect(body().balance).to.equal(Number(pm.collectionVariables.get('balanceB1')));",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenB}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/me",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "me"]
+        }
+      }
+    },
+    {
+      "name": "39 List A: the sender list is unchanged: exactly the one transfer",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[TX-2.a] The sender list is unchanged: exactly the one transfer', () => {",
+              "  pm.expect(res.code).to.equal(200);",
+              "  pm.expect(list()).to.deep.equal([pm.collectionVariables.get('txId')]);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenA}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/transactions",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "transactions"]
+        }
+      }
+    },
+    {
+      "name": "40 List B: the recipient list is unchanged: exactly the one transfer",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[TX-2.a] The recipient list is unchanged: exactly the one transfer', () => {",
+              "  pm.expect(res.code).to.equal(200);",
+              "  pm.expect(list()).to.deep.equal([pm.collectionVariables.get('txId')]);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenB}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/transactions",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "transactions"]
+        }
+      }
+    },
+    {
+      "name": "41 Transfer to an unknown email",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[TX-3.a] An email nobody signed up with answers 422 RECIPIENT_NOT_FOUND', () => { pm.expect(res.code).to.equal(422); pm.expect(body()).to.include({ status: 422, code: 'RECIPIENT_NOT_FOUND' }); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenA}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/transfers",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "transfers"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"toEmail\": \"{{emailGhost}}\",\n  \"amount\": 100\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "42 Transfer to a pending sign-up",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[TX-3.a] An email with only a pending sign-up answers 422 RECIPIENT_NOT_FOUND', () => { pm.expect(res.code).to.equal(422); pm.expect(body()).to.include({ status: 422, code: 'RECIPIENT_NOT_FOUND' }); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenA}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/transfers",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "transfers"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"toEmail\": \"{{emailC}}\",\n  \"amount\": 100\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "43 Get me A: nothing changed: the sender balance is the same",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[TX-3.a] Nothing changed: the sender balance is the same', () => {",
+              "  pm.expect(res.code).to.equal(200);",
+              "  pm.expect(body().balance).to.equal(Number(pm.collectionVariables.get('balanceA1')));",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenA}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/me",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "me"]
+        }
+      }
+    },
+    {
+      "name": "44 List A: nothing changed: the sender list is still exactly the one transfer",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[TX-3.a] Nothing changed: the sender list is still exactly the one transfer', () => {",
+              "  pm.expect(res.code).to.equal(200);",
+              "  pm.expect(list()).to.deep.equal([pm.collectionVariables.get('txId')]);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenA}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/transactions",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "transactions"]
+        }
+      }
+    },
+    {
+      "name": "45 Read C passcode",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[DB-3.d] The outbox holds a six-digit sign-up passcode for C', () => {",
+              "  pm.expect(res.code).to.equal(200);",
+              "  pm.expect(body().email).to.equal(pm.collectionVariables.get('emailC'));",
+              "  pm.expect(body().passcode).to.match(/^\\d{6}$/);",
+              "});",
+              "if (res.code === 200) pm.collectionVariables.set('codeC', body().passcode);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/__test/outbox?email={{emailC}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["__test", "outbox"],
+          "query": [
+            {
+              "key": "email",
+              "value": "{{emailC}}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "46 Verify C",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[DB-3.d] Verifying C answers 200 with a Bearer token: C is the third user', () => {",
+              "  pm.expect(res.code).to.equal(200);",
+              "  pm.expect(body().tokenType).to.equal('Bearer');",
+              "});",
+              "if (res.code === 200) pm.collectionVariables.set('tokenC', body().accessToken);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/auth/otp/verify",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "auth", "otp", "verify"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{emailC}}\",\n  \"passcode\": \"{{codeC}}\",\n  \"password\": \"correct horse battery\",\n  \"phone\": \"+972531234567\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "47 B sends the whole balance to A",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const balance = Number(pm.collectionVariables.get('balanceB1'));",
+              "pm.test(\"[TX-1.b] Precondition: user B's balance was read earlier\", () => pm.expect(Number.isInteger(balance) && balance > 0).to.equal(true));",
+              "pm.collectionVariables.set('whole', Number.isInteger(balance) && balance > 0 ? balance : 1);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[TX-1.b] Sending the whole balance answers 201 and leaves the sender at 0', () => {",
+              "  pm.expect(res.code).to.equal(201);",
+              "  pm.expect(body().balance).to.equal(0);",
+              "  pm.expect(body().transaction.amount).to.equal(-Number(pm.collectionVariables.get('balanceB1')));",
+              "  pm.expect(body().transaction.counterpartyEmail).to.equal(pm.collectionVariables.get('emailA'));",
+              "});",
+              "if (res.code === 201) pm.collectionVariables.set('wholeId', body().transaction.id);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenB}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/transfers",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "transfers"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"toEmail\": \"{{emailA}}\",\n  \"amount\": {{whole}}\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "48 Get me A: the recipient rose by the whole balance",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[TX-1.b] The recipient rose by the whole balance', () => {",
+              "  pm.expect(res.code).to.equal(200);",
+              "  pm.expect(body().balance).to.equal(Number(pm.collectionVariables.get('balanceA1')) + Number(pm.collectionVariables.get('balanceB1')));",
+              "});",
+              "if (res.code === 200 && body().balance === Number(pm.collectionVariables.get('balanceA1')) + Number(pm.collectionVariables.get('balanceB1'))) pm.collectionVariables.set('balanceA2', body().balance);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenA}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/me",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "me"]
+        }
+      }
+    },
+    {
+      "name": "49 A sends B a small amount",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": ["pm.collectionVariables.set('small', 100);"]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[DB-3.b] A third transfer, A to B, answers 201', () => {",
+              "  pm.expect(res.code).to.equal(201);",
+              "  pm.expect(body().transaction.amount).to.equal(-Number(pm.collectionVariables.get('small')));",
+              "});",
+              "if (res.code === 201) pm.collectionVariables.set('smallId', body().transaction.id);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenA}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/transfers",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "transfers"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"toEmail\": \"{{emailB}}\",\n  \"amount\": {{small}}\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "50 List B newest first",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[DB-3.b] The list is newest first with each record once: the small transfer, the whole balance, the first transfer', () => {",
+              "  pm.expect(res.code).to.equal(200);",
+              "  pm.expect(body().items.map((i) => [i.id, i.amount])).to.deep.equal([",
+              "    [pm.collectionVariables.get('smallId'), Number(pm.collectionVariables.get('small'))],",
+              "    [pm.collectionVariables.get('wholeId'), -Number(pm.collectionVariables.get('balanceB1'))],",
+              "    [pm.collectionVariables.get('txId'), Number(pm.collectionVariables.get('amount'))],",
+              "  ]);",
+              "});",
+              "if (res.code === 200) pm.collectionVariables.set('listB', JSON.stringify(list()));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenB}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/transactions",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "transactions"]
+        }
+      }
+    },
+    {
+      "name": "51 List B with limit 1",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[DB-3.c] limit=1 returns exactly the newest item', () => {",
+              "  pm.expect(res.code).to.equal(200);",
+              "  pm.expect(list()).to.deep.equal([pm.collectionVariables.get('smallId')]);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenB}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/transactions?limit=1",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "transactions"],
+          "query": [
+            {
+              "key": "limit",
+              "value": "1"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "52 List C after the A and B transfers",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[DB-3.d] C sees none of the transfers between A and B', () => {",
+              "  pm.expect(res.code).to.equal(200);",
+              "  pm.expect(body()).to.deep.equal({ items: [] });",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenC}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/transactions",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "transactions"]
+        }
+      }
+    },
+    {
+      "name": "53 A sends C an amount",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": ["pm.collectionVariables.set('toC', 700);"]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[DB-3.d] A sends C: 201', () => {",
+              "  pm.expect(res.code).to.equal(201);",
+              "  pm.expect(body().transaction.counterpartyEmail).to.equal(pm.collectionVariables.get('emailC'));",
+              "});",
+              "if (res.code === 201) pm.collectionVariables.set('toCId', body().transaction.id);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenA}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/transfers",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "transfers"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"toEmail\": \"{{emailC}}\",\n  \"amount\": {{toC}}\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "54 List B after A paid C",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[DB-3.d] B sees nothing of the transfer between A and C', () => {",
+              "  pm.expect(res.code).to.equal(200);",
+              "  pm.expect(JSON.stringify(list())).to.equal(pm.collectionVariables.get('listB'));",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenB}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/transactions",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "transactions"]
+        }
+      }
+    },
+    {
+      "name": "55 List C after A paid C",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json();",
+              "const jwt = (token) => { const part = (i) => JSON.parse(atob(token.split('.')[i].replace(/-/g, '+').replace(/_/g, '/'))); return { header: part(0), payload: part(1) }; };",
+              "const list = () => body().items.map((i) => i.id);",
+              "pm.test('[DB-3.d] C sees exactly the transfer they received', () => {",
+              "  pm.expect(res.code).to.equal(200);",
+              "  pm.expect(body().items.map((i) => [i.id, i.counterpartyEmail, i.amount])).to.deep.equal([[pm.collectionVariables.get('toCId'), pm.collectionVariables.get('emailA'), Number(pm.collectionVariables.get('toC'))]]);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenC}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/transactions",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "transactions"]
+        }
+      }
+    }
+  ]
+}

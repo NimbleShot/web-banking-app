@@ -9,7 +9,9 @@ import { bearerAuthHandler } from './http/auth';
 import { corsForFrontEnd } from './http/cors';
 import { contractMiddleware, type ResponseViolation } from './http/contract';
 import { errorHandler, notFound } from './http/errors';
+import { createTestOutboxRouter } from './http/test-outbox';
 import type { Mailer } from './mail/mailer';
+import { OutboxMailer } from './mail/outbox';
 import type { PasswordResetRepository } from './repositories/password-resets';
 import type { PendingSignUpRepository } from './repositories/pending-sign-ups';
 import type { TransactionRepository } from './repositories/transactions';
@@ -54,6 +56,11 @@ export function createApp(deps: AppDeps, routes?: Router): Express {
   const bearerAuth = bearerAuthHandler(
     createAuthenticationService({ tokens, users: deps.repositories.users }),
   );
+  // Test-only passcode route (ADR-0012): only for the in-memory outbox, never in production, and
+  // ahead of the contract, which would answer it 404.
+  if (deps.mailer instanceof OutboxMailer && deps.config.nodeEnv !== 'production') {
+    app.use(createTestOutboxRouter(deps.mailer));
+  }
   app.use(contractMiddleware({ bearerAuth, onResponseViolation: deps.onResponseViolation }));
   app.use(routes ?? createRoutes({ ...deps, tokens }));
   app.use(notFound);
