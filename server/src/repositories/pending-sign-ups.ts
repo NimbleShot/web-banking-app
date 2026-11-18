@@ -10,6 +10,11 @@ import {
 /** A pending sign-up older than this counts as absent; one exactly this old is still live (docs/decisions/0002, 0007). */
 export const PENDING_SIGN_UP_TTL_MS = 24 * 60 * 60_000;
 
+/** Whether a pending sign-up started at `createdAt` still counts at `now`; every store applies this rule. */
+export function isPendingSignUpLive(createdAt: Date, now: Date): boolean {
+  return now.getTime() - createdAt.getTime() <= PENDING_SIGN_UP_TTL_MS;
+}
+
 export type PendingSignUp = {
   /** Lowercased. */
   email: string;
@@ -37,10 +42,7 @@ export class InMemoryPendingSignUpRepository implements PendingSignUpRepository 
 
   private live(email: string, now: Date): PendingSignUp | undefined {
     const record = this.byEmail.get(email);
-    if (!record) return undefined;
-    return now.getTime() - record.createdAt.getTime() <= PENDING_SIGN_UP_TTL_MS
-      ? record
-      : undefined;
+    return record && isPendingSignUpLive(record.createdAt, now) ? record : undefined;
   }
 
   async create(email: string, hmac: string, now: Date): Promise<boolean> {
