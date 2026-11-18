@@ -6,6 +6,7 @@ import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import { connectMongo, type MongoStore } from '../src/repositories/mongo/models';
 import { MongoPasswordResetRepository } from '../src/repositories/mongo/password-resets';
 import { MongoPendingSignUpRepository } from '../src/repositories/mongo/pending-sign-ups';
+import { MongoTransactionRepository } from '../src/repositories/mongo/transactions';
 import { MongoUserRepository } from '../src/repositories/mongo/users';
 import { PENDING_SIGN_UP_TTL_MS } from '../src/repositories/pending-sign-ups';
 import { DuplicateEmailError, type NewUser } from '../src/repositories/users';
@@ -139,5 +140,91 @@ describe('DM-4 the passcode rules hold on MongoDB under concurrent requests', ()
     clock.advance(afterCooldown);
     expect(await repo.issue(email, resetHmac('333333'), clock.now())).toBe(true);
     expect(await repo.usePasscode(email, resetHmac('333333'), clock.now())).toBe(true);
+  });
+});
+
+describe('DM-3 a transfer on MongoDB is one transaction', () => {
+  /** Two users on a fresh database: the sender holds 100.00 ₪, the recipient 50.00 ₪. */
+  async function twoUsers() {
+    const store = await freshStore();
+    const users = new MongoUserRepository(store.models);
+    const sender = await users.insert(newUser('dana@example.com', 10_000));
+    const recipient = await users.insert(newUser('omer@example.com', 5_000));
+    const balances = async () => [
+      (await users.findById(sender.id))?.balance,
+      (await users.findById(recipient.id))?.balance,
+    ];
+    return { store, sender, recipient, balances };
+  }
+
+  it('[DM-3] a transfer moves both balances and adds one record that both sides list', async () => {
+    const { store, sender, recipient, balances } = await twoUsers();
+    const transactions = new MongoTransactionRepository(store.connection, store.models);
+    const at = new Date();
+
+    const outcome = await transactions.transfer({
+      fromUserId: sender.id,
+      toEmail: 'OMER@example.com',
+      amount: 2_500,
+      at,
+    });
+
+    expect(outcome).toEqual({
+      result: 'done',
+      balance: 7_500,
+      record: {
+        id: expect.any(String),
+        fromUserId: sender.id,
+        toUserId: recipient.id,
+        fromEmail: 'dana@example.com',
+        toEmail: 'omer@example.com',
+        amount: 2_500,
+        createdAt: at,
+      },
+    });
+    expect(await balances()).toEqual([7_500, 7_500]);
+    const record = outcome.result === 'done' ? outcome.record : undefined;
+    expect(await transactions.listFor(sender.id, 10)).toEqual([record]);
+    expect(await transactions.listFor(recipient.id, 10)).toEqual([record]);
+  });
+
+  it('[DM-3] a write that fails after the debit and the credit leaves both balances and the records unchanged', async () => {
+    const { store, sender, balances } = await twoUsers();
+    class FaultyStore extends MongoTransactionRepository {
+      protected override async insertRecord(): Promise<never> {
+        throw new Error('the record could not be stored');
+      }
+    }
+    const transactions = new FaultyStore(store.connection, store.models);
+
+    await expect(
+      transactions.transfer({
+        fromUserId: sender.id,
+        toEmail: 'omer@example.com',
+        amount: 2_500,
+        at: new Date(),
+      }),
+    ).rejects.toThrow('the record could not be stored');
+
+    expect(await balances()).toEqual([10_000, 5_000]);
+    expect(await store.models.transactions.countDocuments()).toBe(0);
+  });
+
+  it('[DM-3] two transfers sent at once that together exceed the balance: one is done, one is insufficient-funds, no overdraft', async () => {
+    const { store, sender, balances } = await twoUsers();
+    const transactions = new MongoTransactionRepository(store.connection, store.models);
+    const send = () =>
+      transactions.transfer({
+        fromUserId: sender.id,
+        toEmail: 'omer@example.com',
+        amount: 6_000,
+        at: new Date(),
+      });
+
+    const outcomes = await Promise.all([send(), send()]);
+
+    expect(outcomes.map((o) => o.result).sort()).toEqual(['done', 'insufficient-funds']);
+    expect(await balances()).toEqual([4_000, 11_000]);
+    expect(await store.models.transactions.countDocuments()).toBe(1);
   });
 });
