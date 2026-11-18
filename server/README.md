@@ -63,11 +63,17 @@ port, so tests call the app directly.
 1. A pino request log line (credentials redacted).
 2. Security headers (helmet) on every answer, errors included, and CORS: only `CORS_ORIGIN` gets
    `Access-Control-Allow-Origin`, and preflight (`OPTIONS`) requests are answered here.
-3. The contract ([`src/http/contract.ts`](src/http/contract.ts)): the operation is looked up (an
-   unknown path or method answers `404 NOT_FOUND`), the bearer header is required where the
-   contract asks for it, the JSON body is parsed, and the path, query and body are validated. Any
-   mismatch answers `400 VALIDATION_FAILED` with one `errors` entry per field, before a handler
-   runs.
+3. The contract ([`src/http/contract.ts`](src/http/contract.ts)), in this order:
+   - The operation is looked up; an unknown path or method answers `404 NOT_FOUND`.
+   - On every operation the contract secures, the bearer token is checked before the body is
+     read ([`src/http/auth.ts`](src/http/auth.ts)): its signature and expiry, and that its user
+     still exists. Any refusal answers `401 UNAUTHORIZED`, so a request with a bad token and an
+     invalid body gets the 401. If the check itself fails (a store error), the answer is
+     `500 INTERNAL_ERROR`.
+   - The JSON body is parsed, and the path, query and body are validated. Any mismatch answers
+     `400 VALIDATION_FAILED` with one `errors` entry per field, before a handler runs.
+     listTransactions also refuses a non-finite `limit` (`Infinity`, `1e400`) with the same
+     400, on its route.
 4. The operation's route. Six routes first pass a per-client-address rate limit
    ([`src/http/rate-limits.ts`](src/http/rate-limits.ts), SEC-2): login, verifyOtp and resetPassword
    share one limit of 10 failed attempts per 15 minutes; signUp, resendOtp and requestPasswordReset
@@ -91,7 +97,9 @@ being sent with `res.json`, fails the test that caused it, even if its assertion
 exception is a 5xx answer, which the validator never checks; the error handler builds it from
 the typed `problem()` helper.
 
-Handlers answer with `res.json` or `sendProblem` only.
+Handlers answer with `res.json` or `sendProblem`. An answer with no content (resendOtp's and
+requestPasswordReset's 202, resetPassword's 204) is `res.status(n).end()` with no body, which
+the check accepts only for a status the operation declares without content.
 
 ## The Postman flow
 
