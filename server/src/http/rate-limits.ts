@@ -87,17 +87,22 @@ export class SlidingWindowStore implements Store {
 export type RateLimiters = {
   /** Counts only the answers that failed a credential check (401); everything else is given back. */
   credentials: RequestHandler;
-  /** Counts every request that reaches it, except the 429s it answers itself. */
+  /**
+   * Counts every request that reaches it, a client that hangs up before the answer included
+   * (SEC-6), except the 429s it answers itself.
+   */
   email: RequestHandler;
 };
 
 /**
  * The 429 problem, with Retry-After as whole seconds until the oldest counted hit leaves the
- * window (at least 1).
+ * window (at least 1). With `giveBack`, the refused request's own hit is taken back first, so
+ * hammering while limited can't extend the wait.
  */
-function tooManyRequests(clock: Clock, store: Store) {
+function tooManyRequests(clock: Clock, store: Store, { giveBack = false } = {}) {
   return async (req: Request, res: Response, _next: unknown, options: Options): Promise<void> => {
     const key = (req as AugmentedRequest)[options.requestPropertyName]?.key;
+    if (giveBack && key !== undefined) await store.decrement(key);
     const resetTime = key === undefined ? undefined : (await store.get?.(key))?.resetTime;
     const seconds = resetTime ? Math.ceil((resetTime.getTime() - clock.now().getTime()) / 1000) : 1;
     res.setHeader('Retry-After', String(Math.max(1, seconds)));
@@ -141,12 +146,12 @@ export function createRateLimiters({
     email: rateLimit({
       ...shared,
       store: emailStore,
-      handler: tooManyRequests(clock, emailStore),
+      // Only the limiter's own 429 is given back, by its handler. The library's
+      // `skipFailedRequests` would also give back a request whose client hung up before the
+      // answer, while its handler goes on to send the passcode (SEC-6).
+      handler: tooManyRequests(clock, emailStore, { giveBack: true }),
       windowMs: EMAIL_WINDOW_MS,
       limit: EMAIL_REQUEST_LIMIT,
-      // A refused request is given back, so hammering a limited address cannot extend its wait.
-      skipFailedRequests: true,
-      requestWasSuccessful: (_req, res) => res.statusCode !== 429,
     }),
   };
 }

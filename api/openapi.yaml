@@ -16,6 +16,24 @@ info:
     - Authenticated operations take `Authorization: Bearer <JWT>`, returned by passcode
       verification and login and valid for one hour (docs/decisions/0004). There is no logout
       operation: the client discards the token.
+
+    Storage (docs/decisions/0013): with `MONGODB_URI` set, the server keeps its data in four
+    MongoDB collections; without it, in memory (refused in production).
+
+    | Collection | One document per | `_id` | Fields | Indexes |
+    |------------|------------------|-------|--------|---------|
+    | `users` | verified user | a random UUID, the token's `sub` | `email` (lowercased), `phone` (E.164), `passwordHash` (argon2id), `balance` (integer agorot), `createdAt` | `email`, unique |
+    | `pendingSignUps` | email waiting for its passcode | the lowercased email | `createdAt`, `passcode` | expiry on `createdAt` (25 h) |
+    | `passwordResets` | email that asked for a reset | the lowercased email | `passcode`, `used` | expiry on `passcode.issuedAt` (2 h) |
+    | `transactions` | transfer, read by both sides | a MongoDB ObjectId (creation order) | `fromUserId`, `toUserId`, `fromEmail`, `toEmail`, `amount` (positive agorot), `createdAt` | (`fromUserId`, `createdAt`) and (`toUserId`, `createdAt`) |
+
+    - `passcode` is `{ hmac, issuedAt, wrongTries, sentAt[] }`: an HMAC of the passcode, never the
+      passcode itself (docs/decisions/0001).
+    - The expiry indexes only clean up: the passcode and 24-hour rules are checked against the
+      server's clock, and a record is removed an hour after those rules stop counting it.
+    - A transfer is one transaction: the debit (only if the balance covers it), the credit and the
+      record commit together or not at all, and a conflicting concurrent transfer is retried
+      (docs/decisions/0003).
   license:
     name: MIT
     identifier: MIT

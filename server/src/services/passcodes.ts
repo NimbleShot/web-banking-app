@@ -11,7 +11,8 @@ export const PASSCODE_RULES = {
   maxSendsPerHour: 5,
 } as const;
 
-const HOUR_MS = 60 * 60_000;
+/** The window the send cap counts in; a passcode record older than this affects no rule. */
+export const HOUR_MS = 60 * 60_000;
 
 /** A passcode as stored: its HMAC and the bookkeeping the rules need, never the code. */
 export type PasscodeState = {
