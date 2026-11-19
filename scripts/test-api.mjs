@@ -24,6 +24,8 @@ const secret = () => randomBytes(32).toString('base64');
 let server;
 /** @type {import('node:child_process').ChildProcess | undefined} */
 let newman;
+/** @type {import('mongodb-memory-server').MongoMemoryReplSet | undefined} */
+let database;
 let stopping = false;
 
 function stopChildren() {
@@ -46,7 +48,10 @@ for (const [signal, code] of /** @type {const} */ ([
   process.on(signal, () => {
     stopping = true;
     stopChildren();
-    process.exit(code);
+    // Stopping the replica set also removes its data folder; exit even if that fails.
+    void Promise.resolve(database?.stop())
+      .catch(() => undefined)
+      .finally(() => process.exit(code));
   });
 }
 
@@ -155,8 +160,6 @@ function runNewman(port) {
 }
 
 let exitCode = 1;
-/** @type {import('mongodb-memory-server').MongoMemoryReplSet | undefined} */
-let database;
 try {
   // Transactions need a replica set. The first run on a machine downloads mongod (~120 MB).
   database = await MongoMemoryReplSet.create({

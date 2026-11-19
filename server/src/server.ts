@@ -13,13 +13,20 @@ async function main(): Promise<void> {
   // The refusals come before any connection: the mailer's (SEC-5.d), then the storage's.
   const mailer = createMailer(config);
   const storage = await openStorage(config);
-  const app = createApp({
-    config,
-    logger,
-    clock: systemClock,
-    mailer,
-    repositories: storage.repositories,
-  });
+  let app: ReturnType<typeof createApp>;
+  try {
+    app = createApp({
+      config,
+      logger,
+      clock: systemClock,
+      mailer,
+      repositories: storage.repositories,
+    });
+  } catch (error) {
+    // An open database connection would keep the process alive after the failure.
+    await storage.close();
+    throw error;
+  }
   // Express 5 hands a failed bind (port taken, no permission) to this callback.
   const server = app.listen(config.port, (error?: Error) => {
     if (error) {
