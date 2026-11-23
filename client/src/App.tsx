@@ -5,8 +5,8 @@ import { Dashboard } from './screens/Dashboard';
 import { Forgot } from './screens/Forgot';
 import { Login } from './screens/Login';
 import { Reset } from './screens/Reset';
-import { ScreenStub } from './screens/ScreenStub';
 import { SignUp } from './screens/SignUp';
+import { Transfer } from './screens/Transfer';
 import { Verify } from './screens/Verify';
 
 const router = createBrowserRouter([
@@ -20,10 +20,7 @@ const router = createBrowserRouter([
     element: <RequireSession />,
     children: [
       { path: '/dashboard', element: <Dashboard /> },
-      {
-        path: '/transfer',
-        element: <ScreenStub signedIn title="Send money" eyebrow="NEW TRANSFER" lead="" />,
-      },
+      { path: '/transfer', element: <Transfer /> },
     ],
   },
   { path: '*', element: <Navigate to="/login" replace /> },

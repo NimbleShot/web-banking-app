@@ -197,6 +197,32 @@
   text-align: center;
 }
 
+/* The send-money screen */
+.card-transfer {
+  flex-basis: 460px;
+}
+
+.input-amount {
+  padding-right: 44px;
+  font-family: var(--font-mono);
+}
+
+.input-currency {
+  position: absolute;
+  top: 0;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  height: 50px;
+  color: var(--text-muted);
+  font-size: 16px;
+  pointer-events: none;
+}
+
+.divider-transfer {
+  margin: 28px 0 20px;
+}
+
 @media (max-width: 520px) {
   .page-content-dashboard {
     padding: 16px 16px 64px;
@@ -204,5 +230,9 @@
 
   .tx-card {
     padding: 28px 22px;
+  }
+
+  .card-transfer {
+    flex-basis: 100%;
   }
 }
