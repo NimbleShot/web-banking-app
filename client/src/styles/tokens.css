@@ -15,6 +15,13 @@
   --field-border: #7a6da8;
   --error: #f87171;
   --error-text: #fca5a5;
+  --error-glow: 0 0 0 4px rgb(248 113 113 / 0.14), 0 0 22px 0 rgb(239 68 68 / 0.3);
+  --alert-text: #fecaca;
+  --alert-title: #ffe4e4;
+  --text-info: #7dd3fc;
+  --field-fill: rgb(8 5 18 / 0.55);
+  --field-fill-strong: rgb(8 5 18 / 0.7);
+  --field-focus: #a78bfa;
 
   --color-ground: #0b0716;
   --color-accent: #3b1a78;

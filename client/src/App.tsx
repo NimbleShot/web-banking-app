@@ -1,6 +1,8 @@
 import { createBrowserRouter, Navigate } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
 import { ScreenStub } from './screens/ScreenStub';
+import { SignUp } from './screens/SignUp';
+import { Verify } from './screens/Verify';
 
 const router = createBrowserRouter([
   { path: '/', element: <Navigate to="/login" replace /> },
@@ -16,28 +18,8 @@ const router = createBrowserRouter([
       />
     ),
   },
-  {
-    path: '/signup',
-    element: (
-      <ScreenStub
-        title="Create your account"
-        label="SECURE SIGN-UP"
-        eyebrow="STEP 01 / 02"
-        lead="We'll email you a code to confirm it's really you."
-      />
-    ),
-  },
-  {
-    path: '/verify',
-    element: (
-      <ScreenStub
-        title="Check your email"
-        label="EMAIL CHECK"
-        eyebrow="STEP 02 / 02"
-        lead="We sent you a 6-digit code. It works for 10 minutes."
-      />
-    ),
-  },
+  { path: '/signup', element: <SignUp /> },
+  { path: '/verify', element: <Verify /> },
   {
     path: '/forgot',
     element: (

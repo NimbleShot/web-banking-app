@@ -60,6 +60,13 @@ and system packages or binaries the project depends on. A removal deletes the ro
 | `eslint-plugin-react-hooks` | dev | ^7.1 (7.1.1) | client | P05 | Lints the rules of hooks |
 | `eslint-plugin-react-refresh` | dev | ^0.5 (0.5.8) | client | P05 | Keeps component files compatible with fast refresh |
 | `create-vite` | npx | 9.3.4 | client | P05 | The reference template for `client/` (`--template react-ts --eslint`), run once. TypeScript and ESLint stay at the repo root, so there is one copy of each |
+| `openapi-fetch` | runtime | ^0.17 (0.17.0) | client | P05 | API calls typed from the generated contract ([ADR-0006](decisions/0006-contract-enforcement-and-api-conventions.md)) |
+| `jest` | dev | ^30.5 (30.5.2) | client | P05 | Unit tests of the form, passcode and money rules; `npm test` in `check` |
+| `@jest/globals` | dev | ^30.5 (30.5.2) | client | P05 | Typed `describe`/`it`/`expect` imports |
+| `@swc/jest` | dev | ^0.2.39 (0.2.39) | client | P05 | Strips TypeScript types for Jest |
+| `@swc/core` | dev | ^1.16 (1.16.22) | client | P05 | The compiler `@swc/jest` drives |
+| `cypress` | dev | ^16.3 (16.3.0) | client | P05 | Browser tests against the real app (`npm run test:e2e`). CI skips its binary until the browser tests join CI |
+| `xvfb`, `libgbm-dev`, `libnotify-dev` | system | Ubuntu 24.04 packages | — | P05 | The virtual display and libraries Cypress needs on a headless Linux machine |
 
 Kinds: `dev` (devDependency) · `runtime` (dependency) · `npx` (pinned, never installed) ·
 `system` (apt package or binary on the server or CI runner).
