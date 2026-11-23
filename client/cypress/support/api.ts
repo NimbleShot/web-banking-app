@@ -52,6 +52,17 @@ export function balanceOf(token: string): Cypress.Chainable<number> {
     .its('body.balance');
 }
 
+/** Sets the browser's reduced-motion preference, for what the page's CSS and scripts both see. */
+export function setReducedMotion(value: 'reduce' | 'no-preference') {
+  return cy.wrap(
+    Cypress.automation('remote:debugger:protocol', {
+      command: 'Emulation.setEmulatedMedia',
+      params: { features: [{ name: 'prefers-reduced-motion', value }] },
+    }),
+    { log: false },
+  );
+}
+
 /** Opens a page already signed in with a token. */
 export function visitSignedIn(path: string, token: string) {
   return cy.visit(path, {

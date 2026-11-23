@@ -1,4 +1,10 @@
-import { balanceOf, registerUser, uniqueEmail, visitSignedIn } from '../support/api';
+import {
+  balanceOf,
+  registerUser,
+  setReducedMotion,
+  uniqueEmail,
+  visitSignedIn,
+} from '../support/api';
 
 const shekels = (agorot: number) =>
   new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(
@@ -17,6 +23,11 @@ function send() {
 const tokenOf = (email: string) => registerUser(email).its('body.accessToken');
 
 describe('send-money screen', () => {
+  // These tests check where the money ends up, so they don't wait through the balance's count.
+  beforeEach(() => {
+    setReducedMotion('reduce');
+  });
+
   it("[UX-6] a valid transfer, even double-clicked, moves the money once and returns to the dashboard with the server's balance and record", () => {
     const sender = uniqueEmail();
     const receiver = uniqueEmail();

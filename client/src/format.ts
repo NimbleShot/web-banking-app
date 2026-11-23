@@ -19,6 +19,11 @@ export function formatTransfer(agorot: number): string {
   return `${agorot < 0 ? MINUS_SIGN : '+'}${amountText(agorot)} ₪`;
 }
 
+/** The part of a transfer still counting. It keeps the transfer's sign when it reaches zero. */
+export function formatRemaining(change: number, remaining: number): string {
+  return `${change < 0 ? MINUS_SIGN : '+'}${amountText(remaining)} ₪`;
+}
+
 const TIME = new Intl.DateTimeFormat('en-GB', {
   hour: '2-digit',
   minute: '2-digit',

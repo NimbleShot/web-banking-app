@@ -9,9 +9,11 @@ type TransactionListProps = {
   now: Date;
   /** The id of the heading that names the list. */
   labelledBy: string;
+  /** A transaction that opens into the list as it appears. */
+  arrivingId?: string | undefined;
 };
 
-export function TransactionList({ items, now, labelledBy }: TransactionListProps) {
+export function TransactionList({ items, now, labelledBy, arrivingId }: TransactionListProps) {
   if (items.length === 0) {
     return (
       <div className="tx-empty">
@@ -27,7 +29,12 @@ export function TransactionList({ items, now, labelledBy }: TransactionListProps
       {items.map((transaction) => {
         const sent = transaction.amount < 0;
         return (
-          <li key={transaction.id} className={`tx-row ${sent ? 'tx-sent' : 'tx-received'}`}>
+          <li
+            key={transaction.id}
+            className={`tx-row ${sent ? 'tx-sent' : 'tx-received'} ${
+              transaction.id === arrivingId ? 'tx-row-arriving' : ''
+            }`}
+          >
             <span className="tx-icon" aria-hidden="true">
               {sent ? <ArrowUpRightIcon /> : <ArrowDownLeftIcon />}
             </span>

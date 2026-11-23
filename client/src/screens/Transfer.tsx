@@ -12,6 +12,7 @@ import { Page } from '../components/Page';
 import { formatBalance } from '../format';
 import { checkAmount } from '../forms/amount';
 import { checkEmail } from '../forms/rules';
+import { rememberSent } from '../motion/justSent';
 
 const TO_ID = 'transfer-to';
 const AMOUNT_ID = 'transfer-amount';
@@ -100,7 +101,8 @@ export function Transfer() {
     );
 
     if (result.ok) {
-      // The dashboard loads the balance and the new record from the server.
+      // The dashboard loads the balance and the new record from the server, and counts it.
+      rememberSent(result.data.transaction.id);
       void navigate('/dashboard', { replace: true });
       return;
     }

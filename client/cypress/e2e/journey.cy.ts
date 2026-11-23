@@ -1,4 +1,11 @@
-import { balanceOf, latestCode, PASSWORD, registerUser, uniqueEmail } from '../support/api';
+import {
+  balanceOf,
+  latestCode,
+  PASSWORD,
+  registerUser,
+  setReducedMotion,
+  uniqueEmail,
+} from '../support/api';
 
 const TOKEN_KEY = 'bank.accessToken';
 
@@ -30,6 +37,11 @@ const storedToken = () =>
   cy.window().then((win): string => win.sessionStorage.getItem(TOKEN_KEY) ?? '');
 
 describe('the main journey', () => {
+  // The journey checks where the money ends up, so it doesn't wait through the balance's count.
+  beforeEach(() => {
+    setReducedMotion('reduce');
+  });
+
   it('[UX-8] a new user signs up, reads the emailed code, reaches the dashboard, sends money and signs out', () => {
     const email = uniqueEmail();
     const recipient = uniqueEmail();

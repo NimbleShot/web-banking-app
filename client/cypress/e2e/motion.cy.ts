@@ -1,16 +1,13 @@
-import { PASSWORD, registerUser, uniqueEmail } from '../support/api';
+import {
+  balanceOf,
+  PASSWORD,
+  registerUser,
+  setReducedMotion,
+  uniqueEmail,
+  visitSignedIn,
+} from '../support/api';
 
 const CODE_INPUT = 'input[autocomplete="one-time-code"]';
-
-function setReducedMotion(value: 'reduce' | 'no-preference') {
-  return cy.wrap(
-    Cypress.automation('remote:debugger:protocol', {
-      command: 'Emulation.setEmulatedMedia',
-      params: { features: [{ name: 'prefers-reduced-motion', value }] },
-    }),
-    { log: false },
-  );
-}
 
 /** Records every motion as it starts, so a test never depends on catching one mid-flight. */
 function watchMotion(win: Cypress.AUTWindow, log: string[]) {
@@ -146,5 +143,146 @@ describe('animated screen changes', () => {
     cy.visit('/Login/');
     cy.get('.hero').should('have.css', 'visibility', 'visible');
     cy.contains('header', 'SECURE SIGN-IN');
+  });
+});
+
+type CountSeen = { balance: number; amount: number; sign: string; rows: number };
+
+const agorot = (text: string | null | undefined) => Number((text ?? '').replace(/\D/g, ''));
+
+/** Records the balance and the amount from the same DOM update, on every change while counting. */
+function recordCount(win: Cypress.AUTWindow, frames: CountSeen[]) {
+  const observer = new win.MutationObserver(() => {
+    const amount = win.document.querySelector('.balance-delta')?.textContent;
+    if (!amount) return;
+    const seen = {
+      balance: agorot(win.document.querySelector('.balance-value')?.textContent),
+      amount: agorot(amount),
+      sign: amount.charAt(0),
+      rows: win.document.querySelectorAll('.tx-row').length,
+    };
+    const last = frames.at(-1);
+    if (last?.balance !== seen.balance || last.amount !== seen.amount) frames.push(seen);
+  });
+  observer.observe(win.document, { subtree: true, childList: true, characterData: true });
+}
+
+function sendFromScreen(to: string, amount: string) {
+  cy.contains('.card-strong', '.');
+  cy.get('#transfer-to').type(to);
+  cy.get('#transfer-amount').type(amount);
+  cy.get('form button[type="submit"]').click();
+  cy.location('pathname').should('eq', '/dashboard');
+}
+
+/** Waits on the recorded frames, because the page is also "done" before its data has loaded. */
+function countFinished(frames: CountSeen[]) {
+  cy.wrap(frames, { timeout: 12_000, log: false }).should((seen: CountSeen[]) => {
+    expect(seen.at(-1)?.amount, 'the amount left').to.equal(0);
+  });
+  cy.get('.balance-value-done', { timeout: 12_000 });
+}
+
+function expectEveryFrameAddsUp(frames: CountSeen[], start: number, size: number, end: number) {
+  expect(frames.length, 'frames seen').to.be.greaterThan(5);
+  expect(frames[0]).to.include({ balance: start, amount: size, sign: '−', rows: 0 });
+  frames.reduce((previous, frame) => {
+    expect(frame.balance - frame.amount, 'balance minus what is left').to.equal(end);
+    expect(frame.amount, 'the amount never counts back').to.be.at.most(previous);
+    expect(frame.sign).to.equal('−');
+    if (frame.amount > 0) expect(frame.rows, 'the new row waits').to.equal(0);
+    return frame.amount;
+  }, size);
+  expect(frames.at(-1)).to.include({ balance: end, amount: 0 });
+}
+
+describe('animated balance after a transfer', () => {
+  const AMOUNT = 98_765;
+
+  afterEach(() => {
+    setReducedMotion('no-preference');
+  });
+
+  function twoUsers(run: (token: string, other: string, before: number) => void) {
+    const me = uniqueEmail();
+    const other = uniqueEmail();
+    registerUser(other);
+    registerUser(me)
+      .its('body.accessToken')
+      .then((token: string) => balanceOf(token).then((before) => run(token, other, before)));
+  }
+
+  it('[UX-10] a sent transfer shows the signed amount above the balance, both count until it is used up, every frame adds up, and neither a reload nor coming back replays it', () => {
+    const frames: CountSeen[] = [];
+    setReducedMotion('no-preference');
+    cy.on('window:before:load', (win) => recordCount(win, frames));
+
+    twoUsers((token, other, before) => {
+      visitSignedIn('/transfer', token);
+      sendFromScreen(other, '987.65');
+      countFinished(frames);
+
+      cy.then(() => expectEveryFrameAddsUp(frames, before, AMOUNT, before - AMOUNT));
+      balanceOf(token).should('eq', before - AMOUNT);
+      cy.get('.balance-delta').should('have.text', '');
+      cy.get('.tx-row').should('have.length', 1);
+      cy.get('[role="status"]').first().should('contain.text', 'Your balance is now');
+
+      // Coming back first: a reload would also wipe what the page remembers in memory.
+      cy.then(() => {
+        frames.length = 0;
+      });
+      cy.contains('a', 'Send money').click();
+      cy.contains('a', 'Back to your account').click();
+      cy.location('pathname').should('eq', '/dashboard');
+      cy.contains('.balance-value', '.');
+      cy.wait(1_500).then(() => expect(frames, 'frames on coming back').to.deep.equal([]));
+
+      cy.reload();
+      cy.contains('.balance-value', '.');
+      cy.wait(1_500).then(() => expect(frames, 'frames after a reload').to.deep.equal([]));
+    });
+  });
+
+  it("[UX-10] the count ends on the server's balance, even when it isn't the old balance minus the amount", () => {
+    const frames: CountSeen[] = [];
+    const ARRIVED_MEANWHILE = 5_000;
+    setReducedMotion('no-preference');
+    cy.on('window:before:load', (win) => recordCount(win, frames));
+
+    twoUsers((token, other, before) => {
+      cy.intercept('GET', '/api/v1/me').as('firstLoad');
+      visitSignedIn('/transfer', token);
+      cy.wait('@firstLoad');
+      cy.intercept('GET', '/api/v1/me', (req) => {
+        req.continue((res) => {
+          res.body.balance += ARRIVED_MEANWHILE;
+        });
+      });
+      sendFromScreen(other, '987.65');
+      countFinished(frames);
+
+      const end = before - AMOUNT + ARRIVED_MEANWHILE;
+      cy.then(() => expectEveryFrameAddsUp(frames, end + AMOUNT, AMOUNT, end));
+      cy.get('.balance-value').should(($value) => expect(agorot($value.text())).to.equal(end));
+    });
+  });
+
+  it('[UX-10] with reduced motion the new balance appears at once, with no amount above it', () => {
+    const frames: CountSeen[] = [];
+    setReducedMotion('reduce');
+    cy.on('window:before:load', (win) => recordCount(win, frames));
+
+    twoUsers((token, other, before) => {
+      visitSignedIn('/transfer', token);
+      sendFromScreen(other, '987.65');
+
+      cy.get('.balance-value-done').should(($value) =>
+        expect(agorot($value.text())).to.equal(before - AMOUNT),
+      );
+      cy.get('.tx-row').should('have.length', 1);
+      cy.get('.balance-delta').should('have.text', '');
+      cy.wait(1_500).then(() => expect(frames, 'count frames').to.deep.equal([]));
+    });
   });
 });

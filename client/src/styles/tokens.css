@@ -104,6 +104,9 @@
     rgb(56 189 248 / 0) 72%
   );
   --balance-glow: 0 0 28px rgb(139 92 246 / 0.58), 0 0 64px rgb(139 92 246 / 0.28);
+  --balance-glow-count: 0 0 30px rgb(253 186 116 / 0.68), 0 0 72px rgb(253 186 116 / 0.28);
+  --balance-glow-land: 0 0 36px rgb(253 186 116 / 0.84), 0 0 90px rgb(253 186 116 / 0.4);
+  --delta-glow: 0 0 18px rgb(253 186 116 / 0.59);
   --card-fill:
     linear-gradient(rgb(33 16 66 / 0.62), rgb(33 16 66 / 0.62)) padding-box,
     linear-gradient(

@@ -1,9 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, type RefObject } from 'react';
+import { motionIsReduced } from './reducedMotion';
 
 const EASE_MOVE = 'cubic-bezier(0.22, 1, 0.36, 1)';
 const SHIFT_PX = 36;
-
-const motionIsReduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /**
  * Plays one screen change inside the card: its height runs from the old form's to the new one's,
