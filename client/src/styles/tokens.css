@@ -1,0 +1,104 @@
+/* The design's colours, type and light effects. Every screen styles itself from these. */
+:root {
+  color-scheme: dark;
+
+  --font-body: 'Inter Variable', system-ui, sans-serif;
+  --font-display: 'Unbounded Variable', sans-serif;
+  --font-mono: 'JetBrains Mono Variable', monospace;
+
+  --text: #f4f1ff;
+  --text-soft: #e4defa;
+  --text-muted: #b8b0d4;
+  --text-faint: #9a92b8;
+  --text-accent: #c4b5fd;
+  --text-placeholder: #8f86ae;
+  --field-border: #7a6da8;
+  --error: #f87171;
+  --error-text: #fca5a5;
+
+  --color-ground: #0b0716;
+  --color-accent: #3b1a78;
+  --color-glow: #8b5cf6;
+  --color-light: #38bdf8;
+  --color-glow-bright: #a885f8;
+  --color-glow-soft: rgb(139 92 246 / 0.76);
+  --grid-image:
+    linear-gradient(rgb(139 92 246 / 0.09) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(139 92 246 / 0.09) 1px, transparent 1px);
+  --glow-a: radial-gradient(circle, rgb(139 92 246 / 0.44) 0%, rgb(139 92 246 / 0) 65%);
+  --glow-b: radial-gradient(circle, rgb(56 189 248 / 0.32) 0%, rgb(56 189 248 / 0) 65%);
+  --glow-c: radial-gradient(circle, rgb(217 70 239 / 0.24) 0%, rgb(217 70 239 / 0) 65%);
+  --card-aura: radial-gradient(
+    circle,
+    rgb(139 92 246 / 0.336) 0%,
+    rgb(56 189 248 / 0.096) 45%,
+    rgb(56 189 248 / 0) 70%
+  );
+  --beam: linear-gradient(
+    180deg,
+    rgb(168 133 248 / 0),
+    rgb(168 133 248 / 0.64) 45%,
+    rgb(56 189 248 / 0.56) 60%,
+    rgb(56 189 248 / 0)
+  );
+  --beam-halo: rgb(139 92 246 / 0.28);
+  --rim: rgb(191 165 250 / 0.9);
+  --horizon-fill: linear-gradient(180deg, rgb(139 92 246 / 0.224) 0%, rgb(11 7 22 / 0) 14%);
+  --horizon-glow: 0 -10px 50px 0 rgb(139 92 246 / 0.48), 0 -40px 160px 10px rgb(56 189 248 / 0.24);
+  --star-tail: linear-gradient(
+    90deg,
+    rgb(139 92 246 / 0) 0%,
+    rgb(168 133 248 / 0.56) 70%,
+    #fff 100%
+  );
+  --star-tail-alt: linear-gradient(
+    90deg,
+    rgb(56 189 248 / 0) 0%,
+    rgb(56 189 248 / 0.6) 70%,
+    #fff 100%
+  );
+  --star-head: 0 0 8px 2px rgb(255 255 255 / 0.85), 0 0 22px 6px rgb(56 189 248 / 0.48);
+  --light-fill: linear-gradient(100deg, #fff 0%, #ede4ff 35%, #f0abfc 75%, #7ed4fa 100%);
+  --light-glow: drop-shadow(0 0 4px rgb(245 243 255 / 0.52))
+    drop-shadow(0 0 16px rgb(139 92 246 / 0.74)) drop-shadow(0 0 36px rgb(139 92 246 / 0.44));
+  --aura-hero: radial-gradient(
+    ellipse at center,
+    rgb(139 92 246 / 0.48) 0%,
+    rgb(217 70 239 / 0.224) 45%,
+    rgb(56 189 248 / 0) 72%
+  );
+  --aura-balance: radial-gradient(
+    ellipse at center,
+    rgb(139 92 246 / 0.4) 0%,
+    rgb(217 70 239 / 0.16) 45%,
+    rgb(56 189 248 / 0) 72%
+  );
+  --balance-glow: 0 0 28px rgb(139 92 246 / 0.58), 0 0 64px rgb(139 92 246 / 0.28);
+  --card-fill:
+    linear-gradient(rgb(33 16 66 / 0.62), rgb(33 16 66 / 0.62)) padding-box,
+    linear-gradient(
+        140deg,
+        rgb(168 133 248 / 0.95),
+        rgb(56 189 248 / 0.7) 50%,
+        rgb(139 92 246 / 0.15)
+      )
+      border-box;
+  --card-glow:
+    inset 0 1px 0 rgb(255 255 255 / 0.06), 0 30px 90px -20px rgb(139 92 246 / 0.54),
+    0 0 70px -10px rgb(56 189 248 / 0.24);
+  --edge-light: linear-gradient(
+    90deg,
+    rgb(255 255 255 / 0),
+    #fff 30%,
+    #38bdf8 55%,
+    rgb(255 255 255 / 0)
+  );
+  --edge-halo: rgb(56 189 248 / 0.4);
+  --logo-fill: linear-gradient(145deg, #8b5cf6, #3b1a78);
+  --logo-glow: inset 0 1px 0 rgb(255 255 255 / 0.3), 0 0 24px 2px rgb(139 92 246 / 0.55);
+  --focus-glow: 0 0 0 4px rgb(139 92 246 / 0.22), 0 0 28px 2px rgb(139 92 246 / 0.46);
+  --button-fill: linear-gradient(180deg, #a885f8 -30%, #8b5cf6 25%, #3b1a78 100%);
+  --button-glow:
+    inset 0 1px 0 rgb(255 255 255 / 0.35), 0 12px 36px -8px rgb(139 92 246 / 0.76),
+    0 0 34px -2px rgb(139 92 246 / 0.44);
+}

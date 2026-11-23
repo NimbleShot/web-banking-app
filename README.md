@@ -22,7 +22,9 @@ Needs Node 24 (`.nvmrc`).
 ```sh
 nvm use            # or any Node >=24.9 <25
 npm ci
-npm run check          # format, contract lint, generated-type drift, lint, typecheck; CI runs the same
+npm run check          # format, contract lint, type drift, lint, typecheck, client build, tests; CI too
+npm run dev -w server  # the API on http://localhost:3000
+npm run dev -w client  # the front end on http://localhost:5173, calling that API
 npm run format         # fix formatting
 npm run gen:api        # regenerate api/generated/schema.d.ts after changing the contract
 npm run check:postman  # import the contract as a Postman collection: one request per operation

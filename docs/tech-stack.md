@@ -47,6 +47,19 @@ and system packages or binaries the project depends on. A removal deletes the ro
 | `@types/cors` | dev | ^2.8 (2.8.19) | server | P02 | `cors` types |
 | `mongodb-memory-server` | dev | ^11.3 (11.3.0) | server | P03 | A throwaway MongoDB replica set for the Mongo tests and `test:api` (transactions need a replica set) |
 | `mongod` | system | 8.2.6 (`mongodb-memory-server`'s default) | — | P03 | Downloaded on first use (~120 MB) into `~/.cache/mongodb-binaries`, locally and on the CI runner |
+| `react` | runtime | ^19.3 (19.3.1) | client | P05 | The UI library |
+| `react-dom` | runtime | ^19.3 (19.3.1) | client | P05 | Renders React in the browser |
+| `react-router` | runtime | ^8.5 (8.5.2) | client | P05 | Client-side routes, in data mode. Never `react-router-dom` (gotcha 10) |
+| `@fontsource-variable/inter` | runtime | ^5.3 (5.3.0) | client | P05 | The design's body font, self-hosted ([ADR-0014](decisions/0014-client-plain-css-few-libraries.md)) |
+| `@fontsource-variable/jetbrains-mono` | runtime | ^5.3 (5.3.0) | client | P05 | The design's label font, self-hosted |
+| `@fontsource-variable/unbounded` | runtime | ^5.3 (5.3.0) | client | P05 | The design's heading font, self-hosted |
+| `vite` | dev | ^8.3 (8.3.8) | client | P05 | The dev server, with `/api` proxied to the API, and the production build (in `check`) |
+| `@vitejs/plugin-react` | dev | ^6.3 (6.3.0) | client | P05 | JSX and fast refresh for Vite |
+| `@types/react` | dev | ^19.3 (19.3.0) | client | P05 | React types |
+| `@types/react-dom` | dev | ^19.3 (19.3.0) | client | P05 | React DOM types |
+| `eslint-plugin-react-hooks` | dev | ^7.1 (7.1.1) | client | P05 | Lints the rules of hooks |
+| `eslint-plugin-react-refresh` | dev | ^0.5 (0.5.8) | client | P05 | Keeps component files compatible with fast refresh |
+| `create-vite` | npx | 9.3.4 | client | P05 | The reference template for `client/` (`--template react-ts --eslint`), run once. TypeScript and ESLint stay at the repo root, so there is one copy of each |
 
 Kinds: `dev` (devDependency) · `runtime` (dependency) · `npx` (pinned, never installed) ·
 `system` (apt package or binary on the server or CI runner).
