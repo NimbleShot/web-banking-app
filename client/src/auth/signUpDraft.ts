@@ -1,4 +1,4 @@
-import { MAX_TRIES, RESEND_COOLDOWN_MS } from '../forms/passcode';
+import { nextDraft, type CodeProgress } from './codeProgress';
 
 export type SignUpDetails = {
   email: string;
@@ -9,7 +9,7 @@ export type SignUpDetails = {
   password: string;
 };
 
-export type SignUpDraft = SignUpDetails & { triesLeft: number; resendAt: number };
+export type SignUpDraft = SignUpDetails & CodeProgress;
 
 // The server saves the password and phone only when they arrive with the right passcode, so the
 // client holds them between the two screens. In this variable only, never in browser storage:
@@ -20,31 +20,11 @@ export function getSignUpDraft(): SignUpDraft | null {
   return draft;
 }
 
-/**
- * The draft after a sign-up was accepted. Inside the cooldown the server sends nothing and the
- * same code stays live, so the same email keeps its tries and countdown.
- */
-export function nextDraft(
-  previous: SignUpDraft | null,
-  details: SignUpDetails,
-  now: number,
-): SignUpDraft {
-  const sameCode =
-    previous !== null &&
-    previous.email.toLowerCase() === details.email.toLowerCase() &&
-    now < previous.resendAt;
-  return {
-    ...details,
-    triesLeft: sameCode ? previous.triesLeft : MAX_TRIES,
-    resendAt: sameCode ? previous.resendAt : now + RESEND_COOLDOWN_MS,
-  };
-}
-
 export function saveSignUpDraft(details: SignUpDetails, now: number): void {
   draft = nextDraft(draft, details, now);
 }
 
-export function updateSignUpDraft(change: Pick<SignUpDraft, 'triesLeft'> & Partial<SignUpDraft>) {
+export function updateSignUpDraft(change: Partial<CodeProgress>): void {
   if (draft) draft = { ...draft, ...change };
 }
 

@@ -4,6 +4,10 @@ export const NOTICES = {
     title: "You've signed out",
     body: 'Sign in again to get back to your account.',
   },
+  passwordChanged: {
+    title: 'Password reset successful',
+    body: 'Sign in with your new password. The old one no longer works.',
+  },
 } as const;
 
 export type NoticeKind = keyof typeof NOTICES;

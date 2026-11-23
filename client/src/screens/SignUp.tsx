@@ -103,7 +103,7 @@ export function SignUp() {
       <GlassCard>
         <StepHeading step={1} />
         <h1 className="card-title">Create your account</h1>
-        <p className="card-lead card-lead-tight">
+        <p className="card-lead card-lead-form">
           We&apos;ll email you a code to confirm it&apos;s really you.
         </p>
         {problem && <FormAlert title={problem} />}

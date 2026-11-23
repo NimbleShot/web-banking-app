@@ -2,6 +2,7 @@ import { useState, type SyntheticEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { api, attempt, failureMessage } from '../api/client';
 import { noticeFrom } from '../auth/notices';
+import { clearResetDraft } from '../auth/resetDraft';
 import { saveToken } from '../auth/session';
 import { clearSignUpDraft } from '../auth/signUpDraft';
 import { FormAlert } from '../components/Alerts';
@@ -57,6 +58,7 @@ export function Login() {
     if (result.ok) {
       saveToken(result.data.accessToken);
       clearSignUpDraft();
+      clearResetDraft();
       void navigate('/dashboard', { replace: true });
       return;
     }

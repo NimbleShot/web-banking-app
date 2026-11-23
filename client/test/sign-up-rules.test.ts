@@ -1,5 +1,6 @@
 import { describe, expect, it } from '@jest/globals';
-import { nextDraft, type SignUpDraft } from '../src/auth/signUpDraft';
+import { nextDraft } from '../src/auth/codeProgress';
+import type { SignUpDraft } from '../src/auth/signUpDraft';
 import { MAX_TRIES, RESEND_COOLDOWN_MS, triesAlert } from '../src/forms/passcode';
 import { checkEmail, checkPassword, checkPhone } from '../src/forms/rules';
 

@@ -6,13 +6,17 @@ type FieldProps = {
   label: string;
   hint?: string;
   error?: ReactNode;
+  /** A confirmation in place of the hint, such as "Passwords match.". */
+  ok?: string | undefined;
+  /** The error as an announced line of text, without the icon. */
+  plainError?: boolean;
   /** A link on the label's line, such as "Forgot password?". */
   aside?: ReactNode;
   children: ReactNode;
 };
 
-/** A label, its control, and either a hint or the field's error below it. */
-export function Field({ id, label, hint, error, aside, children }: FieldProps) {
+/** A label, its control, and a hint, confirmation or error below it. */
+export function Field({ id, label, hint, error, ok, plainError, aside, children }: FieldProps) {
   return (
     <div className="field">
       <div className="field-label-row">
@@ -23,9 +27,13 @@ export function Field({ id, label, hint, error, aside, children }: FieldProps) {
       </div>
       {children}
       {error ? (
-        <span id={`${id}-message`} className="field-error">
-          <AlertIcon size={15} />
+        <span id={`${id}-message`} className="field-error" role={plainError ? 'alert' : undefined}>
+          {!plainError && <AlertIcon size={15} />}
           <span>{error}</span>
+        </span>
+      ) : ok ? (
+        <span id={`${id}-message`} className="field-ok">
+          {ok}
         </span>
       ) : (
         hint && (
@@ -58,17 +66,30 @@ export function Input({ invalid, described, describedBy, className = '', ...prop
   );
 }
 
-export function PasswordInput(props: Omit<InputProps, 'type'>) {
-  const [shown, setShown] = useState(false);
+type PasswordInputProps = Omit<InputProps, 'type'> & {
+  /** Set with `onToggle` when one eye button shows two fields at once. */
+  shown?: boolean;
+  onToggle?: () => void;
+  noun?: string;
+};
+
+export function PasswordInput({
+  shown,
+  onToggle,
+  noun = 'password',
+  ...props
+}: PasswordInputProps) {
+  const [ownShown, setOwnShown] = useState(false);
+  const visible = shown ?? ownShown;
   return (
     <div className="input-wrap">
-      <Input {...props} type={shown ? 'text' : 'password'} className="input-with-toggle" />
+      <Input {...props} type={visible ? 'text' : 'password'} className="input-with-toggle" />
       <button
         type="button"
         className="input-toggle"
-        aria-label={shown ? 'Hide password' : 'Show password'}
-        aria-pressed={shown}
-        onClick={() => setShown(!shown)}
+        aria-label={`${visible ? 'Hide' : 'Show'} ${noun}`}
+        aria-pressed={visible}
+        onClick={onToggle ?? (() => setOwnShown(!ownShown))}
       >
         <EyeIcon />
       </button>

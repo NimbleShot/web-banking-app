@@ -19,6 +19,17 @@ export function latestCode(email: string): Cypress.Chainable<string> {
     .its('body.passcode');
 }
 
+/** The latest code, which must be a password-reset one rather than the sign-up's. */
+export function latestResetCode(email: string): Cypress.Chainable<string> {
+  return cy
+    .request(`${apiUrl()}/__test/outbox?email=${encodeURIComponent(email)}`)
+    .its('body')
+    .then((body: { purpose: string; passcode: string }) => {
+      expect(body.purpose).to.equal('reset');
+      return body.passcode;
+    });
+}
+
 /** A well-formed code that is certainly not the right one. */
 export function wrongCode(code: string): string {
   return String((Number(code) + 1) % 1_000_000).padStart(6, '0');

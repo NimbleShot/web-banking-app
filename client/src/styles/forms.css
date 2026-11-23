@@ -26,7 +26,8 @@
   gap: 8px;
 }
 
-.form-login {
+.form-login,
+.form-reset {
   gap: 20px;
 }
 
@@ -64,6 +65,11 @@
 .field-error > svg {
   flex-shrink: 0;
   margin-top: 2px;
+}
+
+.field-ok {
+  color: var(--text-info);
+  font-size: 13px;
 }
 
 .field-error-link,
@@ -173,8 +179,12 @@
 }
 
 .button-primary:disabled {
-  opacity: 0.6;
+  opacity: 0.55;
   cursor: not-allowed;
+}
+
+.button-lock:disabled {
+  opacity: 0.6;
 }
 
 .button-ghost {
@@ -225,6 +235,19 @@
   margin-bottom: 24px;
 }
 
+.card-lead-form {
+  margin-bottom: 28px;
+}
+
+.card-lead-code {
+  margin-bottom: 28px;
+  line-height: 1.55;
+}
+
+.card-lead-reset {
+  margin-bottom: 22px;
+}
+
 .card-strong {
   color: #fff;
   font-weight: 600;
@@ -251,6 +274,10 @@
 
 .divider-login {
   margin: 32px 0 24px;
+}
+
+.divider-code {
+  margin: 24px 0 20px;
 }
 
 .step-row {
