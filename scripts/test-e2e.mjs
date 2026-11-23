@@ -132,7 +132,8 @@ function startApi(mongodbUri) {
  */
 function runCypress(spec, appUrl, apiUrl) {
   return new Promise((done) => {
-    const args = ['cypress', 'run', '--project', 'client', '--spec', spec];
+    // Chrome, because the bundled Electron never advances animations when run headless.
+    const args = ['cypress', 'run', '--browser', 'chrome', '--project', 'client', '--spec', spec];
     args.push('--config', `baseUrl=${appUrl}`, '--expose', `apiUrl=${apiUrl}`);
     const child = spawn('npx', args, { stdio: 'inherit', detached: true });
     running.add(child);

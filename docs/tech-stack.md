@@ -209,6 +209,9 @@ only a **hash** of it with an expiry, count wrong attempts, and limit re-sends.
     file, turning the `import()` into a `require`. The experimental `runtimeAdapters: { os }`
     client option also works but would put a test workaround into the app. Plain Node (the
     server, `test:api`) is unaffected. Checked 2026-11-19 (7.8.0).
+19. Cypress 16's bundled Electron never advances CSS or Web Animations when run headless: every
+    animation stays `running` at time 0, so a form fading in stays invisible → `test:e2e` runs in
+    Chrome (`--browser chrome`). Checked 2026-11-24 (Cypress 16.3, Chrome 154).
 
 ## Sources for these claims
 

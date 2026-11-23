@@ -11,7 +11,7 @@ export function Background({ centered }: { centered: boolean }) {
       <div className="bg-beam bg-beam-1" />
       <div className="bg-beam bg-beam-2" />
       <div className="bg-horizon" />
-      {centered && <div className="bg-card-aura" />}
+      <div className={`bg-card-aura ${centered ? '' : 'bg-card-aura-off'}`} />
       {STAR_TRACKS.map((track) => (
         <div key={track} className={`star-track star-track-${track}`}>
           <div className="star" />

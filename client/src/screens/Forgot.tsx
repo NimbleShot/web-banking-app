@@ -5,9 +5,8 @@ import { isSameCode } from '../auth/codeProgress';
 import { getResetDraft, saveResetDraft } from '../auth/resetDraft';
 import { FormAlert } from '../components/Alerts';
 import { Field, Input } from '../components/Field';
-import { GlassCard } from '../components/GlassCard';
 import { ArrowIcon } from '../components/icons';
-import { Page } from '../components/Page';
+import { PageTitle } from '../components/Page';
 import { StepHeading } from '../components/StepHeading';
 import { checkEmail } from '../forms/rules';
 
@@ -58,44 +57,43 @@ export function Forgot() {
   }
 
   return (
-    <Page title="Forgot your password?" label="PASSWORD RESET">
-      <GlassCard>
-        <StepHeading step={1} />
-        <h1 className="card-title">Forgot your password?</h1>
-        <p className="card-lead card-lead-code">
-          Enter your account&apos;s email. If it&apos;s registered, we&apos;ll send a 6-digit code
-          to reset your password.
-        </p>
-        {problem && <FormAlert title={problem} />}
+    <>
+      <PageTitle title="Forgot your password?" />
+      <StepHeading step={1} />
+      <h1 className="card-title">Forgot your password?</h1>
+      <p className="card-lead card-lead-code">
+        Enter your account&apos;s email. If it&apos;s registered, we&apos;ll send a 6-digit code to
+        reset your password.
+      </p>
+      {problem && <FormAlert title={problem} />}
 
-        <form className="form form-code" onSubmit={(event) => void submit(event)} noValidate>
-          <Field id={EMAIL_ID} label="Email" error={error} plainError>
-            <Input
-              id={EMAIL_ID}
-              type="text"
-              inputMode="email"
-              autoComplete="email"
-              placeholder="you@example.com"
-              value={email}
-              invalid={Boolean(error)}
-              described={Boolean(error)}
-              onChange={(event) => {
-                setEmail(event.target.value);
-                setError(null);
-              }}
-            />
-          </Field>
-          <button type="submit" className="button-primary" disabled={busy}>
-            {busy ? 'Sending…' : 'Send code'}
-            {!busy && <ArrowIcon />}
-          </button>
-        </form>
+      <form className="form form-code" onSubmit={(event) => void submit(event)} noValidate>
+        <Field id={EMAIL_ID} label="Email" error={error} plainError>
+          <Input
+            id={EMAIL_ID}
+            type="text"
+            inputMode="email"
+            autoComplete="email"
+            placeholder="you@example.com"
+            value={email}
+            invalid={Boolean(error)}
+            described={Boolean(error)}
+            onChange={(event) => {
+              setEmail(event.target.value);
+              setError(null);
+            }}
+          />
+        </Field>
+        <button type="submit" className="button-primary" disabled={busy}>
+          {busy ? 'Sending…' : 'Send code'}
+          {!busy && <ArrowIcon />}
+        </button>
+      </form>
 
-        <div className="divider divider-login" />
-        <p className="card-foot">
-          Remembered it? <Link to="/login">Back to sign in</Link>
-        </p>
-      </GlassCard>
-    </Page>
+      <div className="divider divider-login" />
+      <p className="card-foot">
+        Remembered it? <Link to="/login">Back to sign in</Link>
+      </p>
+    </>
   );
 }

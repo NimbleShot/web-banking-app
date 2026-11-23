@@ -113,6 +113,11 @@
   border-radius: 50%;
   background: var(--card-aura);
   filter: blur(40px);
+  transition: opacity 0.9s ease;
+}
+
+.bg-card-aura-off {
+  opacity: 0;
 }
 
 /* Shooting stars: each one crosses in the first tenth of its cycle, then waits. */
@@ -316,12 +321,88 @@
 }
 
 /* The login page's hero */
+/* The signed-out frame: the hero folds away while the card slides to the middle. */
+.frame {
+  transition: gap 0.75s var(--ease-move) 0.08s;
+}
+
+.page-content.frame-centered {
+  gap: 0;
+}
+
 .hero {
-  display: flex;
   flex: 1 1 420px;
+  min-width: 0;
+  max-width: 620px;
+  max-height: 760px;
+  transition:
+    flex-grow 0.7s var(--ease-move),
+    flex-basis 0.7s var(--ease-move),
+    max-width 0.7s var(--ease-move),
+    max-height 0.7s var(--ease-move),
+    transform 0.6s var(--ease-move) 0.15s,
+    opacity 0.4s ease 0.3s,
+    visibility 0s linear 0s;
+}
+
+.hero-folded {
+  /* It stays shrinkable: on a phone its width is still wider than the line while it folds. */
+  flex: 0 1 0px;
+  max-width: 0;
+  max-height: 0;
+  opacity: 0;
+  transform: translateX(-56px);
+  visibility: hidden;
+  transition:
+    opacity 0.24s ease,
+    transform 0.5s var(--ease-move),
+    flex-grow 0.75s var(--ease-move) 0.08s,
+    flex-basis 0.75s var(--ease-move) 0.08s,
+    max-width 0.75s var(--ease-move) 0.08s,
+    max-height 0.75s var(--ease-move) 0.08s,
+    visibility 0s linear 0.3s;
+}
+
+/* Keeps the open hero's width while the box around it changes, so the headline never re-wraps. */
+.hero-inner {
+  display: flex;
   flex-direction: column;
   gap: 24px;
-  max-width: 620px;
+  width: 100%;
+  transition: width 0s linear 0.95s;
+}
+
+.hero-folded .hero-inner {
+  width: min(620px, 100vw - 568px);
+  transition: none;
+}
+
+@media (max-width: 987px) {
+  .hero-folded .hero-inner {
+    width: min(620px, 100vw - 48px);
+  }
+}
+
+@media (max-width: 520px) {
+  .hero-folded .hero-inner {
+    width: calc(100vw - 32px);
+  }
+}
+
+.card-stage-moving {
+  overflow: clip;
+  overflow-clip-margin: 20px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .frame,
+  .hero,
+  .hero-folded,
+  .hero-inner,
+  .hero-folded .hero-inner,
+  .bg-card-aura {
+    transition: none;
+  }
 }
 
 .hero-eyebrow {

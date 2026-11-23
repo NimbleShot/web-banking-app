@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
 import { RequireSession } from './auth/RequireSession';
+import { SignedOutFrame } from './components/SignedOutFrame';
 import { Dashboard } from './screens/Dashboard';
 import { Forgot } from './screens/Forgot';
 import { Login } from './screens/Login';
@@ -11,11 +12,16 @@ import { Verify } from './screens/Verify';
 
 const router = createBrowserRouter([
   { path: '/', element: <Navigate to="/login" replace /> },
-  { path: '/login', element: <Login /> },
-  { path: '/signup', element: <SignUp /> },
-  { path: '/verify', element: <Verify /> },
-  { path: '/forgot', element: <Forgot /> },
-  { path: '/reset', element: <Reset /> },
+  {
+    element: <SignedOutFrame />,
+    children: [
+      { path: '/login', element: <Login /> },
+      { path: '/signup', element: <SignUp /> },
+      { path: '/verify', element: <Verify /> },
+      { path: '/forgot', element: <Forgot /> },
+      { path: '/reset', element: <Reset /> },
+    ],
+  },
   {
     element: <RequireSession />,
     children: [

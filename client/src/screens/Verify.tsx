@@ -9,9 +9,8 @@ import {
   type SignUpDraft,
 } from '../auth/signUpDraft';
 import { CodeField } from '../components/CodeField';
-import { GlassCard } from '../components/GlassCard';
 import { ArrowIcon } from '../components/icons';
-import { Page } from '../components/Page';
+import { PageTitle } from '../components/Page';
 import { NewCodeButton, PasscodeAlerts, ResendRow } from '../components/PasscodeParts';
 import { StepHeading } from '../components/StepHeading';
 import { CODE_LENGTH } from '../forms/passcode';
@@ -63,47 +62,46 @@ function VerifyForm({ draft }: { draft: SignUpDraft }) {
   }
 
   return (
-    <Page title="Check your email" label="EMAIL CHECK">
-      <GlassCard>
-        <StepHeading step={2} />
-        <h1 className="card-title">Check your email</h1>
-        <p className="card-lead card-lead-code">
-          We sent a 6-digit code to <strong className="card-strong">{draft.email}</strong>. It works
-          for 10 minutes.
-        </p>
-        <PasscodeAlerts flow={flow} alertId={ALERT_ID} />
+    <>
+      <PageTitle title="Check your email" />
+      <StepHeading step={2} />
+      <h1 className="card-title">Check your email</h1>
+      <p className="card-lead card-lead-code">
+        We sent a 6-digit code to <strong className="card-strong">{draft.email}</strong>. It works
+        for 10 minutes.
+      </p>
+      <PasscodeAlerts flow={flow} alertId={ALERT_ID} />
 
-        <form className="form form-code" onSubmit={(event) => void verify(event)} noValidate>
-          <CodeField
-            legend="Verification code"
-            inputLabel="6-digit verification code"
-            value={flow.code}
-            invalid={flow.rejected}
-            locked={flow.locked}
-            describedBy={flow.showTries ? ALERT_ID : undefined}
-            inputRef={inputRef}
-            onChange={flow.changeCode}
-          />
-          {flow.locked ? (
-            <NewCodeButton flow={flow} buttonRef={lockButtonRef} />
-          ) : (
-            <button
-              type="submit"
-              className="button-primary"
-              disabled={flow.busy || flow.code.length !== CODE_LENGTH}
-            >
-              {flow.busy ? 'Checking…' : 'Verify and continue'}
-              {!flow.busy && <ArrowIcon />}
-            </button>
-          )}
-        </form>
-        <ResendRow flow={flow} />
+      <form className="form form-code" onSubmit={(event) => void verify(event)} noValidate>
+        <CodeField
+          legend="Verification code"
+          inputLabel="6-digit verification code"
+          value={flow.code}
+          invalid={flow.rejected}
+          locked={flow.locked}
+          describedBy={flow.showTries ? ALERT_ID : undefined}
+          inputRef={inputRef}
+          onChange={flow.changeCode}
+        />
+        {flow.locked ? (
+          <NewCodeButton flow={flow} buttonRef={lockButtonRef} />
+        ) : (
+          <button
+            type="submit"
+            className="button-primary"
+            disabled={flow.busy || flow.code.length !== CODE_LENGTH}
+          >
+            {flow.busy ? 'Checking…' : 'Verify and continue'}
+            {!flow.busy && <ArrowIcon />}
+          </button>
+        )}
+      </form>
+      <ResendRow flow={flow} />
 
-        <div className="divider divider-code" />
-        <p className="card-foot">
-          Wrong email? <Link to="/signup">Go back</Link>
-        </p>
-      </GlassCard>
-    </Page>
+      <div className="divider divider-code" />
+      <p className="card-foot">
+        Wrong email? <Link to="/signup">Go back</Link>
+      </p>
+    </>
   );
 }

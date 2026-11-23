@@ -4,9 +4,8 @@ import { api, attempt, failureMessage } from '../api/client';
 import { clearSignUpDraft, getSignUpDraft, saveSignUpDraft } from '../auth/signUpDraft';
 import { FormAlert } from '../components/Alerts';
 import { Field, Input, PasswordInput } from '../components/Field';
-import { GlassCard } from '../components/GlassCard';
 import { ArrowIcon } from '../components/icons';
-import { Page } from '../components/Page';
+import { PageTitle } from '../components/Page';
 import { StepHeading } from '../components/StepHeading';
 import { checkEmail, checkPassword, checkPhone } from '../forms/rules';
 
@@ -99,92 +98,91 @@ export function SignUp() {
   }
 
   return (
-    <Page title="Create your account" label="SECURE SIGN-UP">
-      <GlassCard>
-        <StepHeading step={1} />
-        <h1 className="card-title">Create your account</h1>
-        <p className="card-lead card-lead-form">
-          We&apos;ll email you a code to confirm it&apos;s really you.
-        </p>
-        {problem && <FormAlert title={problem} />}
+    <>
+      <PageTitle title="Create your account" />
+      <StepHeading step={1} />
+      <h1 className="card-title">Create your account</h1>
+      <p className="card-lead card-lead-form">
+        We&apos;ll email you a code to confirm it&apos;s really you.
+      </p>
+      {problem && <FormAlert title={problem} />}
 
-        <form className="form" onSubmit={(event) => void submit(event)} noValidate>
-          <Field
+      <form className="form" onSubmit={(event) => void submit(event)} noValidate>
+        <Field
+          id={FIELD_IDS.email}
+          label="Email"
+          hint="Your 6-digit code goes here."
+          error={errors.email}
+        >
+          <Input
             id={FIELD_IDS.email}
-            label="Email"
-            hint="Your 6-digit code goes here."
-            error={errors.email}
-          >
+            type="email"
+            autoComplete="email"
+            placeholder="you@example.com"
+            value={email}
+            invalid={Boolean(errors.email)}
+            described
+            onChange={(event) => {
+              setEmail(event.target.value);
+              clearError('email');
+            }}
+          />
+        </Field>
+
+        <Field id={FIELD_IDS.phone} label="Phone number" error={errors.phone}>
+          <div className="phone-row">
+            <span className="phone-prefix">
+              <span className="sr-only">Israel, country code </span>+972
+            </span>
             <Input
-              id={FIELD_IDS.email}
-              type="email"
-              autoComplete="email"
-              placeholder="you@example.com"
-              value={email}
-              invalid={Boolean(errors.email)}
-              described
+              id={FIELD_IDS.phone}
+              type="tel"
+              autoComplete="tel-national"
+              placeholder="50 123 4567"
+              value={phone}
+              invalid={Boolean(errors.phone)}
+              described={Boolean(errors.phone)}
               onChange={(event) => {
-                setEmail(event.target.value);
-                clearError('email');
+                setPhone(event.target.value);
+                clearError('phone');
               }}
             />
-          </Field>
+          </div>
+        </Field>
 
-          <Field id={FIELD_IDS.phone} label="Phone number" error={errors.phone}>
-            <div className="phone-row">
-              <span className="phone-prefix">
-                <span className="sr-only">Israel, country code </span>+972
-              </span>
-              <Input
-                id={FIELD_IDS.phone}
-                type="tel"
-                autoComplete="tel-national"
-                placeholder="50 123 4567"
-                value={phone}
-                invalid={Boolean(errors.phone)}
-                described={Boolean(errors.phone)}
-                onChange={(event) => {
-                  setPhone(event.target.value);
-                  clearError('phone');
-                }}
-              />
-            </div>
-          </Field>
-
-          <Field
+        <Field
+          id={FIELD_IDS.password}
+          label="Password"
+          hint="8 to 72 characters."
+          error={errors.password}
+        >
+          <PasswordInput
             id={FIELD_IDS.password}
-            label="Password"
-            hint="8 to 72 characters."
-            error={errors.password}
-          >
-            <PasswordInput
-              id={FIELD_IDS.password}
-              autoComplete="new-password"
-              placeholder="Choose a password"
-              value={password}
-              invalid={Boolean(errors.password)}
-              described
-              onChange={(event) => {
-                setPassword(event.target.value);
-                clearError('password');
-              }}
-            />
-          </Field>
+            autoComplete="new-password"
+            placeholder="Choose a password"
+            value={password}
+            invalid={Boolean(errors.password)}
+            described
+            onChange={(event) => {
+              setPassword(event.target.value);
+              clearError('password');
+            }}
+          />
+        </Field>
 
-          <button type="submit" className="button-primary form-submit" disabled={busy}>
-            {busy ? 'Creating your account…' : 'Create account'}
-            {!busy && <ArrowIcon />}
-          </button>
-        </form>
+        <button type="submit" className="button-primary form-submit" disabled={busy}>
+          {busy ? 'Creating your account…' : 'Create account'}
+          {!busy && <ArrowIcon />}
+        </button>
+      </form>
 
-        <div className="divider" />
-        <p className="card-foot">
-          Already have an account?{' '}
-          <Link to="/login" onClick={clearSignUpDraft}>
-            Sign in
-          </Link>
-        </p>
-      </GlassCard>
-    </Page>
+      <div className="divider" />
+      <p className="card-foot">
+        Already have an account?{' '}
+        <Link to="/login" onClick={clearSignUpDraft}>
+          Sign in
+        </Link>
+      </p>
+    </>
   );
 }
