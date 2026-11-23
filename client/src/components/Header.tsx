@@ -1,9 +1,13 @@
 import { BANK_NAME } from '../brand';
 import { SignOutButton } from './SignOutButton';
 
-type HeaderProps = { label?: string | undefined; signedIn?: boolean };
+type HeaderProps = {
+  label?: string | undefined;
+  signedIn?: boolean;
+  userEmail?: string | undefined;
+};
 
-export function Header({ label, signedIn = false }: HeaderProps) {
+export function Header({ label, signedIn = false, userEmail }: HeaderProps) {
   return (
     <header className="site-header">
       <div className="brand">
@@ -28,7 +32,12 @@ export function Header({ label, signedIn = false }: HeaderProps) {
           {label}
         </span>
       )}
-      {signedIn && <SignOutButton />}
+      {signedIn && (
+        <div className="header-account">
+          {userEmail && <span className="header-email">{userEmail}</span>}
+          <SignOutButton />
+        </div>
+      )}
     </header>
   );
 }

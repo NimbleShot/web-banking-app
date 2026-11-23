@@ -35,6 +35,32 @@ export function wrongCode(code: string): string {
   return String((Number(code) + 1) % 1_000_000).padStart(6, '0');
 }
 
+/** Moves money through the API, as the token's user. */
+export function sendMoney(token: string, toEmail: string, amount: number) {
+  return cy.request({
+    method: 'POST',
+    url: `${apiUrl()}/api/v1/transfers`,
+    headers: { Authorization: `Bearer ${token}` },
+    body: { toEmail, amount },
+  });
+}
+
+/** The balance in agorot, as the API reports it. */
+export function balanceOf(token: string): Cypress.Chainable<number> {
+  return cy
+    .request({ url: `${apiUrl()}/api/v1/me`, headers: { Authorization: `Bearer ${token}` } })
+    .its('body.balance');
+}
+
+/** Opens a page already signed in with a token. */
+export function visitSignedIn(path: string, token: string) {
+  return cy.visit(path, {
+    onBeforeLoad(win) {
+      win.sessionStorage.setItem('bank.accessToken', token);
+    },
+  });
+}
+
 /** Creates a verified user through the API. */
 export function registerUser(email: string) {
   const details = { email, password: PASSWORD, phone: PHONE };

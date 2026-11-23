@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
 import { RequireSession } from './auth/RequireSession';
+import { Dashboard } from './screens/Dashboard';
 import { Forgot } from './screens/Forgot';
 import { Login } from './screens/Login';
 import { Reset } from './screens/Reset';
@@ -18,10 +19,7 @@ const router = createBrowserRouter([
   {
     element: <RequireSession />,
     children: [
-      {
-        path: '/dashboard',
-        element: <ScreenStub signedIn title="Your account" eyebrow="YOUR BALANCE" lead="" />,
-      },
+      { path: '/dashboard', element: <Dashboard /> },
       {
         path: '/transfer',
         element: <ScreenStub signedIn title="Send money" eyebrow="NEW TRANSFER" lead="" />,

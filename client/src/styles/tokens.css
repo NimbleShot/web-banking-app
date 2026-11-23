@@ -23,6 +23,14 @@
   --field-fill-strong: rgb(8 5 18 / 0.7);
   --field-focus: #a78bfa;
 
+  --row-line: rgb(167 139 250 / 0.16);
+  --tx-sent: #fdba74;
+  --tx-sent-fill: rgb(253 186 116 / 0.12);
+  --tx-sent-edge: rgb(253 186 116 / 0.4);
+  --tx-received: #7dd3fc;
+  --tx-received-fill: rgb(125 211 252 / 0.12);
+  --tx-received-edge: rgb(125 211 252 / 0.4);
+
   --notice-border: rgb(136 215 251 / 0.9);
   --notice-ring: #a5e1fc;
   --notice-text: #d7f0ff;

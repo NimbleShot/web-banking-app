@@ -15,6 +15,9 @@ type PageProps = {
   notice?: ReactNode;
   /** Signed-in screens have the sign-out button in the header. */
   signedIn?: boolean;
+  /** Shown beside the sign-out button once the account has loaded. */
+  userEmail?: string | undefined;
+  contentClassName?: string;
   children: ReactNode;
 };
 
@@ -24,14 +27,16 @@ export function Page({
   hero = false,
   notice,
   signedIn = false,
+  userEmail,
+  contentClassName = '',
   children,
 }: PageProps) {
   return (
     <div className="page">
       <title>{`${title} · ${BANK_NAME}`}</title>
       <Background centered={!hero} />
-      <Header label={label} signedIn={signedIn} />
-      <main className="page-content">
+      <Header label={label} signedIn={signedIn} userEmail={userEmail} />
+      <main className={`page-content ${contentClassName}`}>
         {hero && <Hero notice={notice} />}
         {children}
       </main>

@@ -12,3 +12,8 @@ export function readToken(): string | null {
 export function clearToken(): void {
   sessionStorage.removeItem(TOKEN_KEY);
 }
+
+/** The header for calls about the signed-in user's own account. */
+export function authHeaders(): { Authorization: string } {
+  return { Authorization: `Bearer ${readToken() ?? ''}` };
+}
