@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router';
 import type { components } from '../../../api/generated/schema';
 import { api, attempt, failureMessage, type Failure } from '../api/client';
 import { authHeaders } from '../auth/session';
+import { useSessionEnd } from '../auth/useSessionEnd';
 import { FormAlert } from '../components/Alerts';
 import { Field, Input } from '../components/Field';
 import { GlassCard } from '../components/GlassCard';
@@ -43,6 +44,7 @@ function fieldErrors(failure: Failure): Errors | null {
 
 export function Transfer() {
   const navigate = useNavigate();
+  const endIfExpired = useSessionEnd();
   // Set before the request starts, so a double click can never send the money twice.
   const sending = useRef(false);
   const [account, setAccount] = useState<components['schemas']['Account'] | null>(null);
@@ -58,12 +60,14 @@ export function Transfer() {
     void attempt(() => api.GET('/api/v1/me', { headers: authHeaders() })).then((result) => {
       if (!current) return;
       if (result.ok) setAccount(result.data);
-      else setProblem({ title: failureMessage(result.failure) });
+      else if (!endIfExpired(result.failure)) {
+        setProblem({ title: failureMessage(result.failure) });
+      }
     });
     return () => {
       current = false;
     };
-  }, []);
+  }, [endIfExpired]);
 
   function showErrors(found: Errors) {
     setErrors(found);
@@ -100,10 +104,11 @@ export function Transfer() {
       void navigate('/dashboard', { replace: true });
       return;
     }
+    const { failure } = result;
+    if (endIfExpired(failure)) return;
     sending.current = false;
     setBusy(false);
 
-    const { failure } = result;
     const found = fieldErrors(failure);
     if (found) showErrors(found);
     else if (outcomeUnknown(failure)) {

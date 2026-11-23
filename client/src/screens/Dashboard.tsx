@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import type { components } from '../../../api/generated/schema';
-import { api, attempt, failureMessage } from '../api/client';
+import { api, attempt, failureMessage, type Failure } from '../api/client';
 import { authHeaders } from '../auth/session';
+import { useSessionEnd } from '../auth/useSessionEnd';
 import { FormAlert } from '../components/Alerts';
 import { GlassCard } from '../components/GlassCard';
 import { ArrowIcon } from '../components/icons';
@@ -16,7 +17,7 @@ const RECENT_TRANSACTIONS = 20;
 type Loaded = {
   account: components['schemas']['Account'] | null;
   items: components['schemas']['Transaction'][] | null;
-  problem: string | null;
+  failures: Failure[];
   now: Date;
 };
 
@@ -31,29 +32,31 @@ async function loadDashboard(): Promise<Loaded> {
       }),
     ),
   ]);
-  const failure = !me.ok ? me.failure : !list.ok ? list.failure : null;
   return {
     account: me.ok ? me.data : null,
     items: list.ok ? list.data.items : null,
-    problem: failure && failureMessage(failure),
+    failures: [...(me.ok ? [] : [me.failure]), ...(list.ok ? [] : [list.failure])],
     now: new Date(),
   };
 }
 
 export function Dashboard() {
+  const endIfExpired = useSessionEnd();
   const [loaded, setLoaded] = useState<Loaded | null>(null);
 
   useEffect(() => {
     let current = true;
     void loadDashboard().then((result) => {
-      if (current) setLoaded(result);
+      if (!current || result.failures.some((failure) => endIfExpired(failure))) return;
+      setLoaded(result);
     });
     return () => {
       current = false;
     };
-  }, []);
+  }, [endIfExpired]);
 
   const account = loaded?.account ?? null;
+  const failure = loaded?.failures[0];
 
   return (
     <Page
@@ -63,7 +66,7 @@ export function Dashboard() {
       contentClassName="page-content-dashboard"
     >
       <div className="dashboard">
-        {loaded?.problem && <FormAlert title={loaded.problem} />}
+        {failure && <FormAlert title={failureMessage(failure)} />}
 
         <section className="balance" aria-labelledby="balance-label">
           <h1 id="balance-label" className="balance-label">

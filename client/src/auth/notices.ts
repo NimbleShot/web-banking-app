@@ -8,6 +8,10 @@ export const NOTICES = {
     title: 'Password reset successful',
     body: 'Sign in with your new password. The old one no longer works.',
   },
+  sessionEnded: {
+    title: 'Your session ended',
+    body: 'Sign in again to get back to your account.',
+  },
 } as const;
 
 export type NoticeKind = keyof typeof NOTICES;
