@@ -1,7 +1,7 @@
 import { createBrowserRouter, Navigate } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
 import { RequireSession } from './auth/RequireSession';
-import { SignedOutFrame } from './components/SignedOutFrame';
+import { SignedOutFrame, type FrameScreen } from './components/SignedOutFrame';
 import { Dashboard } from './screens/Dashboard';
 import { Forgot } from './screens/Forgot';
 import { Login } from './screens/Login';
@@ -10,16 +10,18 @@ import { SignUp } from './screens/SignUp';
 import { Transfer } from './screens/Transfer';
 import { Verify } from './screens/Verify';
 
+const screen = (step: number, label: string): FrameScreen => ({ step, label });
+
 const router = createBrowserRouter([
   { path: '/', element: <Navigate to="/login" replace /> },
   {
     element: <SignedOutFrame />,
     children: [
-      { path: '/login', element: <Login /> },
-      { path: '/signup', element: <SignUp /> },
-      { path: '/verify', element: <Verify /> },
-      { path: '/forgot', element: <Forgot /> },
-      { path: '/reset', element: <Reset /> },
+      { path: '/login', element: <Login />, handle: screen(0, 'SECURE SIGN-IN') },
+      { path: '/signup', element: <SignUp />, handle: screen(1, 'SECURE SIGN-UP') },
+      { path: '/verify', element: <Verify />, handle: screen(2, 'EMAIL CHECK') },
+      { path: '/forgot', element: <Forgot />, handle: screen(3, 'PASSWORD RESET') },
+      { path: '/reset', element: <Reset />, handle: screen(4, 'PASSWORD RESET') },
     ],
   },
   {

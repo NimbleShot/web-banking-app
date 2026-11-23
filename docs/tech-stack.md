@@ -67,6 +67,7 @@ and system packages or binaries the project depends on. A removal deletes the ro
 | `@swc/core` | dev | ^1.16 (1.16.22) | client | P05 | The compiler `@swc/jest` drives |
 | `cypress` | dev | ^16.3 (16.3.0) | client | P05 | Browser tests against the real app (`npm run test:e2e`). CI skips its binary until the browser tests join CI |
 | `xvfb`, `libgbm-dev`, `libnotify-dev` | system | Ubuntu 24.04 packages | — | P05 | The virtual display and libraries Cypress needs on a headless Linux machine |
+| Google Chrome | system | 154 (already on the machine) | — | P05 | The browser `npm run test:e2e` runs in (gotcha 19). Needed wherever the browser tests run. |
 
 Kinds: `dev` (devDependency) · `runtime` (dependency) · `npx` (pinned, never installed) ·
 `system` (apt package or binary on the server or CI runner).
@@ -209,9 +210,9 @@ only a **hash** of it with an expiry, count wrong attempts, and limit re-sends.
     file, turning the `import()` into a `require`. The experimental `runtimeAdapters: { os }`
     client option also works but would put a test workaround into the app. Plain Node (the
     server, `test:api`) is unaffected. Checked 2026-11-19 (7.8.0).
-19. Cypress 16's bundled Electron never advances CSS or Web Animations when run headless: every
-    animation stays `running` at time 0, so a form fading in stays invisible → `test:e2e` runs in
-    Chrome (`--browser chrome`). Checked 2026-11-24 (Cypress 16.3, Chrome 154).
+19. In `cypress run` with the bundled Electron, headless, the app's CSS and Web Animations stayed
+    `running` at time 0, and the same spec passed in Chrome → `test:e2e` runs in Chrome
+    (`--browser chrome`), which must be installed. Seen 2026-11-24 (Cypress 16.3, Chrome 154).
 
 ## Sources for these claims
 

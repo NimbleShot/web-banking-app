@@ -389,8 +389,10 @@
   }
 }
 
+/* Clips the height only: the form's sideways slide runs inside the card's padding. */
 .card-stage-moving {
-  overflow: clip;
+  overflow-x: visible;
+  overflow-y: clip;
   overflow-clip-margin: 20px;
 }
 

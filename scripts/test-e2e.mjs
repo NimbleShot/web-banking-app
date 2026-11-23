@@ -9,6 +9,7 @@ import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import cypress from 'cypress';
 import memoryServer from 'mongodb-memory-server';
 import { build, preview } from 'vite';
 
@@ -25,6 +26,7 @@ const running = new Set();
 let database;
 /** @type {import('vite').PreviewServer | undefined} */
 let site;
+let passedTests = 0;
 
 function stopProcess(/** @type {import('node:child_process').ChildProcess} */ child) {
   if (child.pid === undefined || child.exitCode !== null) return;
@@ -130,22 +132,32 @@ function startApi(mongodbUri) {
  * @param {string} apiUrl
  * @returns {Promise<boolean>}
  */
-function runCypress(spec, appUrl, apiUrl) {
-  return new Promise((done) => {
-    // Chrome, because the bundled Electron never advances animations when run headless.
-    const args = ['cypress', 'run', '--browser', 'chrome', '--project', 'client', '--spec', spec];
-    args.push('--config', `baseUrl=${appUrl}`, '--expose', `apiUrl=${apiUrl}`);
-    const child = spawn('npx', args, { stdio: 'inherit', detached: true });
-    running.add(child);
-    child.on('error', (error) => {
-      console.error(`test:e2e: could not run Cypress: ${error.message}`);
-      done(false);
+async function runCypress(spec, appUrl, apiUrl) {
+  try {
+    const result = await cypress.run({
+      // Chrome: in the bundled Electron, run headless, the app's animations stayed at time 0.
+      browser: 'chrome',
+      project: 'client',
+      spec,
+      config: { baseUrl: appUrl, expose: { apiUrl } },
     });
-    child.on('close', (code, signal) => {
-      running.delete(child);
-      done(code === 0 && signal === null);
-    });
-  });
+    if (result.status === 'failed') {
+      console.error(`test:e2e: Cypress could not run ${spec}: ${result.message}`);
+      return false;
+    }
+    // A run can end cleanly without finishing its tests, which must never count as a pass.
+    if (result.totalTests === 0 || result.totalPassed !== result.totalTests) {
+      console.error(
+        `test:e2e: ${spec}: ${result.totalPassed} of ${result.totalTests} tests passed`,
+      );
+      return false;
+    }
+    passedTests += result.totalPassed;
+    return true;
+  } catch (error) {
+    console.error(`test:e2e: could not run Cypress: ${error.message}`);
+    return false;
+  }
 }
 
 let exitCode = 1;
@@ -187,6 +199,7 @@ try {
   }
 
   if (failed.length > 0) console.error(`test:e2e: failed:\n  ${failed.join('\n  ')}`);
+  else console.log(`test:e2e: ${passedTests} tests passed in ${specs.length} spec files`);
   exitCode = failed.length === 0 ? 0 : 1;
 } catch (error) {
   console.error(`test:e2e: ${error instanceof Error ? error.message : error}`);

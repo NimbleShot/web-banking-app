@@ -141,5 +141,10 @@ describe('animated screen changes', () => {
 
     move(log, () => cy.get('.card-foot a').click(), '/login', '#login-email', []);
     cy.get('.hero').should('have.css', 'visibility', 'visible');
+
+    // The router also accepts this spelling, and it has to be the same landing page.
+    cy.visit('/Login/');
+    cy.get('.hero').should('have.css', 'visibility', 'visible');
+    cy.contains('header', 'SECURE SIGN-IN');
   });
 });
