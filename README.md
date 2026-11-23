@@ -6,7 +6,7 @@ money to other users by email. Planned next: live transfer notifications, a cust
 chatbot, a banking assistant that answers questions about the user's own account, video calls
 between sender and receiver, Docker and deployment.
 
-**Stack:** React + TypeScript + Material UI (Vite) · Node.js + Express 5 + TypeScript · MongoDB
+**Stack:** React + TypeScript (Vite) · Node.js + Express 5 + TypeScript · MongoDB
 (Mongoose) · Socket.IO · LangGraph + LangChain + OpenAI + Langfuse · Jitsi · Docker · Vercel /
 Render · Jest + Supertest · Cypress.
 

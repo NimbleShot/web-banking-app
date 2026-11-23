@@ -54,7 +54,7 @@ Kinds: `dev` (devDependency) · `runtime` (dependency) · `npx` (pinned, never i
 ## At a glance
 
 ```
- Browser ──── React SPA (Vite, TS, MUI) ───────────── hosted on Vercel
+ Browser ──── React SPA (Vite, TS) ────────────────── hosted on Vercel
     │  HTTPS: REST + JSON           │  WebSocket (Socket.IO)
     ▼                               ▼
  Express API (Node, TS) ── Socket.IO server ───────── hosted on Render (Docker)
@@ -80,7 +80,7 @@ Kinds: `dev` (devDependency) · `runtime` (dependency) · `npx` (pinned, never i
 | Piece | Choice | Version | Notes |
 |-------|--------|---------|-------|
 | Express | **Fixed** | 5.3 | Express 5: a rejected promise in an async handler goes to your error middleware by itself (no try/catch wrapper needed). Wildcard routes changed syntax (`/*splat`). Most tutorials online are still Express 4 |
-| Validation | Requests validated against `openapi.yaml` by `express-openapi-validator` ([ADR-0006](decisions/0006-contract-enforcement-and-api-conventions.md)); **Zod** for env config and client forms | 4.6 | Zod covers email format (`z.email()`). For phone numbers, add `libphonenumber-js` and store E.164 (`+972…`) |
+| Validation | Requests validated against `openapi.yaml` by `express-openapi-validator` ([ADR-0006](decisions/0006-contract-enforcement-and-api-conventions.md)); **Zod** for env config; client forms use small hand-written checks ([ADR-0014](decisions/0014-client-plain-css-few-libraries.md)) | 4.6 | Zod covers email format (`z.email()`). The client accepts Israeli mobile numbers and sends E.164 (`+972…`) |
 | Passwords | Decided ([ADR-0010](decisions/0010-argon2id-passwords-and-jose-tokens.md)): `argon2`, argon2id at OWASP's minimum (19 MiB, 2 iterations) | 0.45 | Hash, never encrypt. bcrypt (6.0), set aside, silently uses only the first 72 bytes of a password |
 | JWT | Decided ([ADR-0010](decisions/0010-argon2id-passwords-and-jose-tokens.md)): `jose` (typed, no dependencies, also does RS256 for Jitsi) | 6.2 | ESM-only: see gotcha 14. `jsonwebtoken` (9.0) was set aside |
 | Security middleware | `helmet`, `cors`, `express-rate-limit` | 8.3 / 2.8 / 8.7 | Rate limits per client IP: [ADR-0011](decisions/0011-per-client-rate-limits.md) |
@@ -111,10 +111,10 @@ only a **hash** of it with an expiry, count wrong attempts, and limit re-sends.
 |-------|--------|---------|-------|
 | React | **Fixed** | 19.3 | — |
 | Build tool | **Vite** (`npm create vite@latest client -- --template react-ts --eslint`) | 8.3 | Without `--eslint`, create-vite 9 scaffolds TS 7 with Oxlint. Create React App is dead. Use a dev proxy (`server.proxy`) so `/api` calls go to Express without CORS during development. To reach the dev server from another machine, set `server.host` and add that host name to `server.allowedHosts` |
-| UI kit | **Material UI** (fixed) | 9.5 | `@mui/material` + Emotion + `@mui/icons-material`. Set one theme (colours, typography) from the Figma design |
+| UI kit | None: plain CSS with design tokens ([ADR-0014](decisions/0014-client-plain-css-few-libraries.md)) | — | Material UI 9 was considered and set aside: the custom design would override it on nearly every element |
 | Routing | **React Router** | 8.5 | Install `react-router@8`. **Never `react-router-dom`**: it still exists on npm and resolves to v7 (7.18). "Data mode" (`createBrowserRouter`) suits a Vite SPA. Protected routes = a layout route that redirects when not logged in |
-| Server state | Recommended: **TanStack Query** | 5.107 | Caching, loading and error states, refetch after a transfer. Optional. Plain `fetch` + `useEffect` works but gets messy |
-| Forms | Recommended: **React Hook Form** + Zod resolver | 7.92 | The same Zod rules on client and server |
+| Server state | One small loader over `openapi-fetch` ([ADR-0014](decisions/0014-client-plain-css-few-libraries.md)) | 0.17 | Two reads (account, transactions). TanStack Query was set aside; a later ADR can adopt it if realtime updates need it |
+| Forms | Small hand-written validators ([ADR-0014](decisions/0014-client-plain-css-few-libraries.md)) | — | Email, phone, password and amount. React Hook Form was set aside for forms of two to four fields; the server has the final say |
 | Design | **Figma** (fixed) | — | The free plan is enough to design 5 screens. The official remote Figma MCP server works on every plan, but the free Starter plan allows only 20 tool calls a month; paid or Education seats get 200 a day. Community servers (e.g. Framelink) are bound by Figma's REST rate limits too |
 
 ### Realtime and video
