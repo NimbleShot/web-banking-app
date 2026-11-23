@@ -380,6 +380,122 @@
   line-height: 1.6;
 }
 
+/* The notice above the hero */
+@keyframes parsec-notice-in {
+  0% {
+    opacity: 0;
+    transform: translateY(-14px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes parsec-notice-pulse {
+  0% {
+    opacity: 0.25;
+    transform: scale(0.98);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.03);
+  }
+  100% {
+    opacity: 0.25;
+    transform: scale(0.98);
+  }
+}
+
+.notice {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  align-self: flex-start;
+  max-width: 100%;
+  margin-bottom: 8px;
+  padding: 16px 28px 16px 16px;
+  border: 1.5px solid var(--notice-border);
+  border-radius: 18px;
+  animation: parsec-notice-in 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.notice-halo,
+.notice-ring,
+.notice-base {
+  position: absolute;
+  z-index: -1;
+}
+
+.notice-halo {
+  inset: -16px;
+  border-radius: 32px;
+  background: var(--notice-halo);
+  filter: blur(14px);
+  animation: parsec-notice-pulse 3.4s ease-in-out infinite;
+}
+
+.notice-ring {
+  inset: -5px;
+  border: 1.5px solid var(--notice-ring);
+  border-radius: 22px;
+  animation: parsec-notice-pulse 3.4s ease-in-out infinite;
+}
+
+.notice-base {
+  inset: 0;
+  border-radius: 16px;
+  background: var(--notice-base);
+}
+
+.notice-icon {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: var(--notice-icon);
+  color: #fff;
+  box-shadow: var(--notice-icon-glow);
+}
+
+.notice-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.notice-title {
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.notice-body {
+  color: var(--notice-text);
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notice {
+    animation: none;
+  }
+
+  .notice-halo,
+  .notice-ring {
+    opacity: 0.75;
+    animation: none;
+  }
+}
+
 /* The glass card */
 .card {
   position: relative;

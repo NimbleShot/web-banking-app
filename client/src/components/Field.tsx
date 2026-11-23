@@ -6,16 +6,21 @@ type FieldProps = {
   label: string;
   hint?: string;
   error?: ReactNode;
+  /** A link on the label's line, such as "Forgot password?". */
+  aside?: ReactNode;
   children: ReactNode;
 };
 
 /** A label, its control, and either a hint or the field's error below it. */
-export function Field({ id, label, hint, error, children }: FieldProps) {
+export function Field({ id, label, hint, error, aside, children }: FieldProps) {
   return (
     <div className="field">
-      <label htmlFor={id} className="field-label">
-        {label}
-      </label>
+      <div className="field-label-row">
+        <label htmlFor={id} className="field-label">
+          {label}
+        </label>
+        {aside}
+      </div>
       {children}
       {error ? (
         <span id={`${id}-message`} className="field-error">
@@ -38,15 +43,17 @@ type InputProps = ComponentProps<'input'> & {
   invalid: boolean;
   /** Whether the field shows a hint or error, which the input then points to. */
   described: boolean;
+  /** Another element that explains the field, such as a form-level alert. */
+  describedBy?: string | undefined;
 };
 
-export function Input({ invalid, described, className = '', ...props }: InputProps) {
+export function Input({ invalid, described, describedBy, className = '', ...props }: InputProps) {
   return (
     <input
       {...props}
       className={`input ${invalid ? 'input-bad' : ''} ${className}`}
       aria-invalid={invalid}
-      aria-describedby={described ? `${props.id}-message` : undefined}
+      aria-describedby={describedBy ?? (described ? `${props.id}-message` : undefined)}
     />
   );
 }

@@ -11,17 +11,28 @@ type PageProps = {
   label?: string;
   /** Only the login landing page has the hero; every other screen centres its card. */
   hero?: boolean;
+  /** A notice above the hero's headline. */
+  notice?: ReactNode;
+  /** Signed-in screens have the sign-out button in the header. */
+  signedIn?: boolean;
   children: ReactNode;
 };
 
-export function Page({ title, label, hero = false, children }: PageProps) {
+export function Page({
+  title,
+  label,
+  hero = false,
+  notice,
+  signedIn = false,
+  children,
+}: PageProps) {
   return (
     <div className="page">
       <title>{`${title} · ${BANK_NAME}`}</title>
       <Background centered={!hero} />
-      <Header label={label} />
+      <Header label={label} signedIn={signedIn} />
       <main className="page-content">
-        {hero && <Hero />}
+        {hero && <Hero notice={notice} />}
         {children}
       </main>
     </div>

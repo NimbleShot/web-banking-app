@@ -1,9 +1,12 @@
+import type { ReactNode } from 'react';
 import { triesAlert } from '../forms/passcode';
 import { AlertIcon } from './icons';
 
-export function FormAlert({ title, body }: { title: string; body?: string }) {
+type FormAlertProps = { id?: string; title: string; body?: ReactNode };
+
+export function FormAlert({ id, title, body }: FormAlertProps) {
   return (
-    <div className="alert" role="alert">
+    <div id={id} className="alert" role="alert">
       <AlertIcon />
       <div className="alert-text">
         <strong className="alert-title">{title}</strong>

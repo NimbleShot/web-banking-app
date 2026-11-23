@@ -26,10 +26,25 @@
   gap: 8px;
 }
 
+.form-login {
+  gap: 20px;
+}
+
+.field-label-row {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
 .field-label {
   color: var(--text-soft);
   font-size: 14px;
   font-weight: 500;
+}
+
+.field-aside {
+  font-size: 14px;
 }
 
 .field-hint {
@@ -162,6 +177,27 @@
   cursor: not-allowed;
 }
 
+.button-ghost {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  height: 44px;
+  padding: 0 16px;
+  border: 1px solid rgb(196 181 253 / 0.45);
+  border-radius: 12px;
+  background: rgb(8 5 18 / 0.45);
+  color: var(--text-soft);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.button-ghost:hover {
+  color: #fff;
+  border-color: rgb(196 181 253 / 0.8);
+}
+
 .link-button {
   padding: 0;
   border: 0;
@@ -213,6 +249,10 @@
   );
 }
 
+.divider-login {
+  margin: 32px 0 24px;
+}
+
 .step-row {
   display: flex;
   gap: 12px;
@@ -256,6 +296,10 @@
   box-shadow: 0 0 32px -6px rgb(239 68 68 / 0.5);
 }
 
+.alert:has(+ .form-login) {
+  margin-bottom: 24px;
+}
+
 .alert > svg {
   flex-shrink: 0;
   margin-top: 1px;
@@ -272,6 +316,13 @@
 .alert-title {
   color: var(--alert-title);
   font-weight: 600;
+}
+
+.alert-link,
+.alert-link:hover {
+  color: var(--alert-title);
+  font-weight: 400;
+  text-decoration: underline;
 }
 
 @keyframes parsec-tries {

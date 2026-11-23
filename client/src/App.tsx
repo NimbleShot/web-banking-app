@@ -1,23 +1,14 @@
 import { createBrowserRouter, Navigate } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
+import { RequireSession } from './auth/RequireSession';
+import { Login } from './screens/Login';
 import { ScreenStub } from './screens/ScreenStub';
 import { SignUp } from './screens/SignUp';
 import { Verify } from './screens/Verify';
 
 const router = createBrowserRouter([
   { path: '/', element: <Navigate to="/login" replace /> },
-  {
-    path: '/login',
-    element: (
-      <ScreenStub
-        hero
-        title="Sign in"
-        label="SECURE SIGN-IN"
-        eyebrow="ACCESS // 01"
-        lead="Use the email and password you signed up with."
-      />
-    ),
-  },
+  { path: '/login', element: <Login /> },
   { path: '/signup', element: <SignUp /> },
   { path: '/verify', element: <Verify /> },
   {
@@ -43,12 +34,17 @@ const router = createBrowserRouter([
     ),
   },
   {
-    path: '/dashboard',
-    element: <ScreenStub title="Your account" eyebrow="YOUR BALANCE" lead="" />,
-  },
-  {
-    path: '/transfer',
-    element: <ScreenStub title="Send money" eyebrow="NEW TRANSFER" lead="" />,
+    element: <RequireSession />,
+    children: [
+      {
+        path: '/dashboard',
+        element: <ScreenStub signedIn title="Your account" eyebrow="YOUR BALANCE" lead="" />,
+      },
+      {
+        path: '/transfer',
+        element: <ScreenStub signedIn title="Send money" eyebrow="NEW TRANSFER" lead="" />,
+      },
+    ],
   },
   { path: '*', element: <Navigate to="/login" replace /> },
 ]);

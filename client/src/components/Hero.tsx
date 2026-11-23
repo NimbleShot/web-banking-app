@@ -1,8 +1,10 @@
+import type { ReactNode } from 'react';
 import { BRAND_NAME } from '../brand';
 
-export function Hero() {
+export function Hero({ notice }: { notice?: ReactNode }) {
   return (
     <section className="hero">
+      {notice}
       <span className="hero-eyebrow">{'// INSTANT TRANSFERS'}</span>
       <h1 className="hero-title">
         <span className="hero-welcome">Welcome to {BRAND_NAME}</span>

@@ -46,6 +46,24 @@ export function AlertIcon({ size = 20 }: { size?: number }) {
   );
 }
 
+export function CheckIcon() {
+  return (
+    <Icon size={24}>
+      <polyline points="20 6 9 17 4 12" />
+    </Icon>
+  );
+}
+
+export function SignOutIcon() {
+  return (
+    <Icon size={16}>
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <polyline points="16 17 21 12 16 7" />
+      <line x1="21" y1="12" x2="9" y2="12" />
+    </Icon>
+  );
+}
+
 export function RefreshIcon() {
   return (
     <Icon size={17}>
