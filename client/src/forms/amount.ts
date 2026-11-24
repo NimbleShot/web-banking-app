@@ -5,8 +5,9 @@ export const MAX_TRANSFER_AGOROT = 100_000_000;
 
 export type AmountCheck = { ok: true; agorot: number } | { ok: false; message: string };
 
-// A comma only ever separates thousands. "12,50" is refused rather than read as 1,250.
-const AMOUNT = /^(\d+|\d{1,3}(?:,\d{3})+)(?:\.(\d{1,2}))?$/;
+// A comma only ever separates thousands. "12,50" is refused rather than read as 1,250, and so is
+// "0,500": a number written with thousands never starts with a zero.
+const AMOUNT = /^(\d+|[1-9]\d{0,2}(?:,\d{3})+)(?:\.(\d{1,2}))?$/;
 
 export function checkAmount(text: string): AmountCheck {
   const match = AMOUNT.exec(text.trim());

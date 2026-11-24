@@ -12,8 +12,9 @@ export function PasscodeAlerts({ flow, alertId }: PartProps & { alertId: string 
       {flow.showTries && <TriesAlert id={alertId} triesLeft={flow.triesLeft} />}
       {flow.problem && <FormAlert title={flow.problem} />}
       {flow.newCodeSent && (
+        // The server answers alike whether or not it sent one, so this never claims it did.
         <p className="form-status" role="status">
-          We sent a new code.
+          {"A new code should arrive shortly. If it doesn't, wait an hour and try again."}
         </p>
       )}
     </>

@@ -7,7 +7,8 @@ import { Field, Input, PasswordInput } from '../components/Field';
 import { ArrowIcon } from '../components/icons';
 import { PageTitle } from '../components/Page';
 import { StepHeading } from '../components/StepHeading';
-import { checkEmail, checkPassword, checkPhone } from '../forms/rules';
+import { checkEmail, checkPassword, checkPhone, EMAIL_MESSAGE } from '../forms/rules';
+import { useOnScreen } from '../useOnScreen';
 
 type FieldName = 'email' | 'phone' | 'password';
 type Errors = Partial<Record<FieldName, ReactNode>>;
@@ -20,10 +21,12 @@ const FIELD_IDS: Record<FieldName, string> = {
 
 export function SignUp() {
   const navigate = useNavigate();
+  const onScreen = useOnScreen();
   const [saved] = useState(getSignUpDraft);
   const [email, setEmail] = useState(saved?.email ?? '');
   const [phone, setPhone] = useState(saved?.phoneText ?? '');
-  const [password, setPassword] = useState(saved?.password ?? '');
+  // Never put back: on a shared computer the next person could press Show password.
+  const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<Errors>({});
   const [problem, setProblem] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -65,6 +68,7 @@ export function SignUp() {
     setBusy(false);
 
     if (result.ok) {
+      if (!onScreen.current) return;
       saveSignUpDraft(
         { email: emailCheck.value, phone: phoneCheck.value, phoneText: phone, password },
         Date.now(),
@@ -90,7 +94,11 @@ export function SignUp() {
     if (failure.kind === 'problem' && failure.code === 'VALIDATION_FAILED') {
       const { email: emailError, phone: phoneError, password: passwordError } = failure.fields;
       if (emailError || phoneError || passwordError) {
-        showErrors({ email: emailError, phone: phoneError, password: passwordError });
+        showErrors({
+          email: emailError ? EMAIL_MESSAGE : undefined,
+          phone: phoneError,
+          password: passwordError,
+        });
         return;
       }
     }

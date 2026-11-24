@@ -17,6 +17,7 @@ import { StepHeading } from '../components/StepHeading';
 import { CODE_LENGTH } from '../forms/passcode';
 import { checkPassword } from '../forms/rules';
 import { usePasscode } from '../forms/usePasscode';
+import { useOnScreen } from '../useOnScreen';
 
 const ALERT_ID = 'reset-alert';
 const PASSWORD_ID = 'reset-password';
@@ -30,9 +31,11 @@ export function Reset() {
 
 function ResetForm({ draft }: { draft: ResetDraft }) {
   const navigate = useNavigate();
+  const onScreen = useOnScreen();
   const inputRef = useRef<HTMLInputElement>(null);
   const lockButtonRef = useRef<HTMLButtonElement>(null);
   const flow = usePasscode({
+    alertId: ALERT_ID,
     inputRef,
     lockButtonRef,
     progress: draft,
@@ -74,6 +77,7 @@ function ResetForm({ draft }: { draft: ResetDraft }) {
     );
     if (result.ok) {
       clearResetDraft();
+      if (!onScreen.current) return;
       void navigate('/login', { replace: true, state: loginState('passwordChanged') });
     }
   }

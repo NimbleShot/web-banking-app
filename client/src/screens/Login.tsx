@@ -9,7 +9,9 @@ import { Field, Input, PasswordInput } from '../components/Field';
 import { ArrowIcon } from '../components/icons';
 import { PageTitle } from '../components/Page';
 import type { FrameContext } from '../components/SignedOutFrame';
-import { checkEmail } from '../forms/rules';
+import { checkEmail, EMAIL_MESSAGE } from '../forms/rules';
+import { forgetSent } from '../motion/justSent';
+import { useOnScreen } from '../useOnScreen';
 
 const EMAIL_ID = 'login-email';
 const PASSWORD_ID = 'login-password';
@@ -19,6 +21,7 @@ type Errors = { email?: string | undefined; password?: string | undefined };
 
 export function Login() {
   const navigate = useNavigate();
+  const onScreen = useOnScreen();
   const { dismissNotice } = useOutletContext<FrameContext>();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -52,9 +55,12 @@ export function Login() {
     setBusy(false);
 
     if (result.ok) {
+      // The user went elsewhere while it was on its way: they stay where they are, signed out.
+      if (!onScreen.current) return;
       saveToken(result.data.accessToken);
       clearSignUpDraft();
       clearResetDraft();
+      forgetSent();
       void navigate('/dashboard', { replace: true });
       return;
     }
@@ -71,7 +77,7 @@ export function Login() {
         return;
       }
       if (failure.code === 'VALIDATION_FAILED' && failure.fields.email) {
-        setErrors({ email: failure.fields.email });
+        setErrors({ email: EMAIL_MESSAGE });
         document.getElementById(EMAIL_ID)?.focus();
         return;
       }

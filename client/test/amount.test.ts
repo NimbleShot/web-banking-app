@@ -39,4 +39,13 @@ describe('the amount a user types', () => {
   ])('[UX-6] %j is refused with its message', (text, message) => {
     expect(checkAmount(text)).toEqual({ ok: false, message });
   });
+  it.each(['0,500', '0,050', '00,500', '0,000.50'])(
+    '[UX-6] %j is refused: a leading zero before a comma means a decimal comma, never thousands',
+    (text) => {
+      expect(checkAmount(text)).toEqual({
+        ok: false,
+        message: 'Enter an amount like 250 or 12.50.',
+      });
+    },
+  );
 });

@@ -70,4 +70,32 @@ describe('sign-in and sign-out screens', () => {
     cy.contains('button', 'Sign out').should('not.exist');
     expectToken(false);
   });
+  it('[UX-3] leaving the sign-in form before its answer arrives keeps the user where they went, signed out', () => {
+    const email = uniqueEmail();
+    registerUser(email);
+    let release: (() => void) | undefined;
+    cy.intercept(
+      'POST',
+      '/api/v1/auth/login',
+      (req) =>
+        new Promise<void>((resolve) => {
+          release = () => {
+            req.continue();
+            resolve();
+          };
+        }),
+    ).as('login');
+    cy.visit('/login');
+    signIn(email);
+    cy.contains('a', 'Create an account').click();
+    cy.location('pathname').should('eq', '/signup');
+
+    cy.wrap(null)
+      .should(() => expect(release, 'the request has arrived').to.be.a('function'))
+      .then(() => release?.());
+    cy.wait('@login');
+    cy.wait(500);
+    cy.location('pathname').should('eq', '/signup');
+    expectToken(false);
+  });
 });

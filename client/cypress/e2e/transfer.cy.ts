@@ -22,6 +22,27 @@ function send() {
 
 const tokenOf = (email: string) => registerUser(email).its('body.accessToken');
 
+/** Holds the next transfer before it reaches the server. The returned function lets it go on. */
+function holdTransfer() {
+  let release: (() => void) | undefined;
+  cy.intercept(
+    'POST',
+    '/api/v1/transfers',
+    (req) =>
+      new Promise<void>((resolve) => {
+        release = () => {
+          req.continue();
+          resolve();
+        };
+      }),
+  ).as('held');
+  return () =>
+    cy
+      .wrap(null)
+      .should(() => expect(release, 'the transfer has been sent').to.be.a('function'))
+      .then(() => release?.());
+}
+
 describe('send-money screen', () => {
   // These tests check where the money ends up, so they don't wait through the balance's count.
   beforeEach(() => {
@@ -99,6 +120,54 @@ describe('send-money screen', () => {
 
         cy.location('pathname').should('eq', '/transfer');
         balanceOf(token).should('eq', before);
+      });
+    });
+  });
+  it('[UX-6] going back to the account while a transfer is on its way shows the new balance once it lands', () => {
+    const other = uniqueEmail();
+    registerUser(other);
+    tokenOf(uniqueEmail()).then((token: string) => {
+      balanceOf(token).then((before) => {
+        const letGo = holdTransfer();
+        visitSignedIn('/transfer', token);
+        cy.contains('.card-strong', shekels(before));
+        fillTransfer(other, '12.34');
+        send();
+        cy.contains('a', 'Back to your account').click();
+        cy.location('pathname').should('eq', '/dashboard');
+        cy.contains('.balance-value', shekels(before));
+
+        letGo();
+        cy.wait('@held');
+        cy.contains('.balance-value', shekels(before - 1234));
+        cy.contains('.tx-row', other);
+        balanceOf(token).should('eq', before - 1234);
+      });
+    });
+  });
+
+  it('[UX-6] signing out while a transfer is on its way stays signed out on the sign-in screen when it lands', () => {
+    const other = uniqueEmail();
+    registerUser(other);
+    tokenOf(uniqueEmail()).then((token: string) => {
+      balanceOf(token).then((before) => {
+        const letGo = holdTransfer();
+        visitSignedIn('/transfer', token);
+        cy.contains('.card-strong', shekels(before));
+        fillTransfer(other, '12.34');
+        send();
+        cy.contains('button', 'Sign out').click();
+        cy.contains('.notice', "You've signed out");
+
+        letGo();
+        cy.wait('@held');
+        cy.wait(500);
+        cy.location('pathname').should('eq', '/login');
+        cy.contains('.notice', "You've signed out");
+        cy.window().then((win) =>
+          expect(win.sessionStorage.getItem('bank.accessToken')).to.equal(null),
+        );
+        balanceOf(token).should('eq', before - 1234);
       });
     });
   });

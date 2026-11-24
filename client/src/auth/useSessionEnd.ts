@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback } from 'react';
 import { useNavigate } from 'react-router';
 import type { Failure } from '../api/client';
 import { loginState } from './notices';
 import { clearToken } from './session';
+import { forgetSent } from '../motion/justSent';
+import { useOnScreen } from '../useOnScreen';
 import { clearSignUpDraft } from './signUpDraft';
 
 /**
@@ -12,14 +14,7 @@ import { clearSignUpDraft } from './signUpDraft';
  */
 export function useSessionEnd() {
   const navigate = useNavigate();
-  const onScreen = useRef(false);
-
-  useEffect(() => {
-    onScreen.current = true;
-    return () => {
-      onScreen.current = false;
-    };
-  }, []);
+  const onScreen = useOnScreen();
 
   return useCallback(
     (failure: Failure): boolean => {
@@ -29,10 +24,11 @@ export function useSessionEnd() {
       if (onScreen.current) {
         clearToken();
         clearSignUpDraft();
+        forgetSent();
         void navigate('/login', { replace: true, state: loginState('sessionEnded') });
       }
       return true;
     },
-    [navigate],
+    [navigate, onScreen],
   );
 }

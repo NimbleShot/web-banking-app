@@ -10,7 +10,7 @@ import { ArrowIcon } from '../components/icons';
 import { Page } from '../components/Page';
 import { TransactionList } from '../components/TransactionList';
 import { formatBalance, formatRemaining } from '../format';
-import { takeSent } from '../motion/justSent';
+import { onSent, takeSent } from '../motion/justSent';
 import { useBalanceCount } from '../motion/useBalanceCount';
 
 const LIST_TITLE_ID = 'tx-title';
@@ -57,6 +57,10 @@ function BalanceDigits({ text }: { text: string }) {
 export function Dashboard() {
   const endIfExpired = useSessionEnd();
   const [loaded, setLoaded] = useState<Loaded | null>(null);
+  const [loads, setLoads] = useState(0);
+
+  // A transfer that lands after the user came back here reloads the balance, and counts it.
+  useEffect(() => onSent(() => setLoads((count) => count + 1)), []);
 
   useEffect(() => {
     let current = true;
@@ -64,13 +68,15 @@ export function Dashboard() {
       if (!current) return;
       const sentId = takeSent();
       if (result.failures.some((failure) => endIfExpired(failure))) return;
-      const sent = result.account && result.items?.find((item) => item.id === sentId);
+      // Only money this user sent: the other side of a transfer has the same id.
+      const sent =
+        result.account && result.items?.find((item) => item.id === sentId && item.amount < 0);
       setLoaded({ ...result, sent: sent ?? null });
     });
     return () => {
       current = false;
     };
-  }, [endIfExpired]);
+  }, [endIfExpired, loads]);
 
   const account = loaded?.account ?? null;
   const failure = loaded?.failures[0];

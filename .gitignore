@@ -19,9 +19,9 @@ secrets/
 # test artefacts
 test-results/
 playwright-report/
-cypress/videos/
-cypress/screenshots/
-cypress/downloads/
+client/cypress/videos/
+client/cypress/screenshots/
+client/cypress/downloads/
 
 # tools
 .vercel/

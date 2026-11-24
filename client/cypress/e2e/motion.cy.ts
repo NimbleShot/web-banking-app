@@ -268,6 +268,40 @@ describe('animated balance after a transfer', () => {
     });
   });
 
+  it("[UX-10] a transfer sent just before signing out is never counted on the next user's dashboard", () => {
+    const frames: CountSeen[] = [];
+    setReducedMotion('no-preference');
+    cy.on('window:before:load', (win) => recordCount(win, frames));
+
+    twoUsers((token, other) => {
+      let release: (() => void) | undefined;
+      // The sender's dashboard never hears back, so the sender signs out before it can count.
+      cy.intercept(
+        { method: 'GET', pathname: '/api/v1/transactions', times: 1 },
+        (req) =>
+          new Promise<void>((resolve) => {
+            release = () => {
+              req.continue();
+              resolve();
+            };
+          }),
+      );
+      visitSignedIn('/transfer', token);
+      sendFromScreen(other, '987.65');
+      cy.contains('button', 'Sign out').click();
+      cy.location('pathname').should('eq', '/login');
+
+      cy.get('#login-email').type(other);
+      cy.get('#login-password').type(PASSWORD);
+      cy.contains('button', 'Sign in').click();
+      cy.location('pathname').should('eq', '/dashboard');
+      cy.get('.tx-row').should('have.length', 1);
+      cy.then(() => release?.());
+      cy.wait(1_500).then(() => expect(frames, 'count frames').to.deep.equal([]));
+      cy.get('.balance [role="status"]').should('have.text', '');
+    });
+  });
+
   it('[UX-10] with reduced motion the new balance appears at once, with no amount above it', () => {
     const frames: CountSeen[] = [];
     setReducedMotion('reduce');

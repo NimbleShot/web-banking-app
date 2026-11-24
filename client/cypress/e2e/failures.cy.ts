@@ -8,6 +8,8 @@ const CONNECTION = "We couldn't reach the bank. Check your connection and try ag
 const SERVER = 'Something went wrong on our side. Try again in a moment.';
 const UNKNOWN = "We can't tell if this transfer went through.";
 
+const agorot = (text: string) => Number(text.replace(/\D/g, ''));
+
 const problem = (status: number, code: string) => ({
   statusCode: status,
   headers: { 'content-type': 'application/problem+json' },
@@ -198,6 +200,27 @@ describe('failure and session states', () => {
       cy.wrap(null).should(() => expect(appCalls).to.equal(2));
       cy.contains('[role="alert"]', UNKNOWN);
       cy.wait(1000).then(() => expect(appCalls).to.equal(2));
+    });
+  });
+  it('[UX-7] after a transfer whose answer was lost, the screen shows the balance the server now holds', () => {
+    const other = uniqueEmail();
+    registerUser(other);
+    tokenOf(uniqueEmail()).then((token: string) => {
+      balanceOf(token).then((before) => {
+        cy.intercept('POST', TRANSFERS, (req) => {
+          req.continue((res) => res.send({ forceNetworkError: true }));
+        });
+        visitSignedIn('/transfer', token);
+        cy.get('.card-strong').should(($amount) => expect(agorot($amount.text())).to.equal(before));
+        fillTransfer(other, '4.35');
+        submitButton().click();
+
+        cy.contains('[role="alert"]', UNKNOWN);
+        balanceOf(token).then((now) => {
+          expect(now, 'the server moved the money').to.be.below(before);
+          cy.get('.card-strong').should(($amount) => expect(agorot($amount.text())).to.equal(now));
+        });
+      });
     });
   });
 });

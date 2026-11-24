@@ -10,6 +10,8 @@ type Options = {
   sendNewCode: () => Promise<Result<unknown>>;
   /** The code field and the locked state's button, which this hook moves the focus to. */
   inputRef: RefObject<HTMLInputElement | null>;
+  /** The tries alert, which holds the focus while the locked state's button still waits. */
+  alertId: string;
   lockButtonRef: RefObject<HTMLButtonElement | null>;
 };
 
@@ -20,6 +22,7 @@ export function usePasscode({
   sendNewCode,
   inputRef,
   lockButtonRef,
+  alertId,
 }: Options) {
   const [code, setCode] = useState('');
   const [rejected, setRejected] = useState(false);
@@ -31,15 +34,30 @@ export function usePasscode({
   const [focusRequest, setFocusRequest] = useState(0);
   const waitMs = useCountdown(resendAt);
   const locked = triesLeft === 0;
+  const waiting = waitMs > 0;
 
   // Runs after the field is enabled again, which a direct focus() call would come too early for.
   useEffect(() => {
     if (focusRequest > 0) inputRef.current?.focus();
   }, [focusRequest, inputRef]);
 
+  // At the lock the new-code button takes the focus. While it counts down it is disabled and can't,
+  // so the alert holds the focus until the button can be pressed, unless the user has moved on.
   useEffect(() => {
-    if (locked) lockButtonRef.current?.focus();
-  }, [locked, lockButtonRef]);
+    if (!locked) return;
+    const alert = document.getElementById(alertId);
+    if (waiting) {
+      alert?.focus();
+      return;
+    }
+    const active = document.activeElement;
+    const movedOn =
+      active !== null &&
+      active !== document.body &&
+      active !== alert &&
+      active !== inputRef.current;
+    if (!movedOn) lockButtonRef.current?.focus();
+  }, [locked, waiting, alertId, inputRef, lockButtonRef]);
 
   function changeCode(digits: string) {
     setCode(digits);

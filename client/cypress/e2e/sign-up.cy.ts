@@ -14,6 +14,23 @@ function enterCode(code: string) {
   cy.contains('button', 'Verify and continue').click();
 }
 
+/** Puts text into the focused field in one go, as a paste or the phone's code autofill does. */
+function pasteText(text: string) {
+  return cy.wrap(
+    Cypress.automation('remote:debugger:protocol', {
+      command: 'Input.insertText',
+      params: { text },
+    }),
+    { log: false },
+  );
+}
+
+const PASSCODE_INVALID = {
+  statusCode: 401,
+  headers: { 'content-type': 'application/problem+json' },
+  body: { type: 'about:blank', title: 'PASSCODE_INVALID', status: 401, code: 'PASSCODE_INVALID' },
+};
+
 function expectNoSecretsStored() {
   cy.window().then((win) => {
     const stored = JSON.stringify({ ...win.localStorage, ...win.sessionStorage });
@@ -99,7 +116,7 @@ describe('sign-up and passcode screens', () => {
     cy.wait('@resend').its('request.body.email').should('eq', email);
     cy.get('.tries-number').should('not.exist');
     cy.get(CODE_INPUT).should('be.enabled').and('have.value', '');
-    cy.contains('[role="status"]', 'We sent a new code.');
+    cy.contains('[role="status"]', 'A new code should arrive shortly.');
     cy.contains('button', 'Send a new code in').should('be.disabled');
   });
 
@@ -111,5 +128,63 @@ describe('sign-up and passcode screens', () => {
     cy.reload();
     cy.location('pathname').should('eq', '/signup');
     cy.get('#signup-password').should('have.value', '');
+  });
+  it('[UX-2] a pasted code keeps all six digits, even with spaces around and inside it', () => {
+    const email = uniqueEmail();
+    cy.visit('/signup');
+    fillSignUp(email);
+    cy.location('pathname').should('eq', '/verify');
+
+    latestCode(email).then((code) => {
+      cy.get(CODE_INPUT).focus();
+      pasteText(` ${code.slice(0, 3)} ${code.slice(3)}`);
+      cy.get(CODE_INPUT).should('have.value', code);
+    });
+    cy.contains('button', 'Verify and continue').should('be.enabled').click();
+    cy.location('pathname').should('eq', '/dashboard');
+  });
+
+  it('[UX-2] going back from the code screen keeps the email and phone, but never puts the password back', () => {
+    const email = uniqueEmail();
+    cy.visit('/signup');
+    fillSignUp(email);
+    cy.location('pathname').should('eq', '/verify');
+
+    cy.contains('a', 'Go back').click();
+    cy.location('pathname').should('eq', '/signup');
+    cy.get('#signup-email').should('have.value', email);
+    cy.get('#signup-phone').should('have.value', '050-123-4567');
+    cy.get('#signup-password').should('have.value', '');
+  });
+
+  it('[UX-2] a code locked while the new-code button still counts down keeps the focus on the alert, then moves it to the button', () => {
+    cy.clock(Date.now(), ['Date', 'setInterval', 'clearInterval']);
+    // The server's refusal is played back, so this test spends none of the wrong-code allowance.
+    cy.intercept('POST', '/api/v1/auth/otp/verify', PASSCODE_INVALID);
+    cy.visit('/signup');
+    fillSignUp(uniqueEmail());
+    cy.location('pathname').should('eq', '/verify');
+
+    for (const left of [4, 3, 2, 1, 0]) {
+      enterCode('000000');
+      cy.contains('.tries-number', String(left));
+    }
+    cy.contains('button', 'Send a new code in').should('be.disabled');
+    cy.focused().should('contain.text', 'No tries left.');
+
+    cy.tick(60_000);
+    cy.contains('button', /^Send a new code$/)
+      .should('be.enabled')
+      .and('have.focus');
+  });
+
+  it("[UX-2] an email the server refuses shows the app's own message, not the server's wording", () => {
+    cy.intercept('POST', '/api/v1/auth/signup').as('signUp');
+    cy.visit('/signup');
+    fillSignUp('dana@example..com');
+    cy.wait('@signUp').its('response.statusCode').should('eq', 400);
+    cy.contains('Enter a valid email address.');
+    cy.contains('must match').should('not.exist');
+    cy.location('pathname').should('eq', '/signup');
   });
 });

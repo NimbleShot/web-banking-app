@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router';
 import { loginState } from '../auth/notices';
 import { clearToken } from '../auth/session';
 import { clearSignUpDraft } from '../auth/signUpDraft';
+import { forgetSent } from '../motion/justSent';
 import { SignOutIcon } from './icons';
 
 export function SignOutButton() {
@@ -11,6 +12,7 @@ export function SignOutButton() {
     // There is no logout call: the session ends when the browser forgets the token.
     clearToken();
     clearSignUpDraft();
+    forgetSent();
     void navigate('/login', { replace: true, state: loginState('signedOut') });
   }
 

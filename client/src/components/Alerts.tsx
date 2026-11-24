@@ -19,7 +19,8 @@ export function FormAlert({ id, title, body }: FormAlertProps) {
 export function TriesAlert({ id, triesLeft }: { id: string; triesLeft: number }) {
   const { title, body, label } = triesAlert(triesLeft);
   return (
-    <div id={id} className="alert" role="alert">
+    // Focusable, so it can hold the focus while a locked code's button still counts down.
+    <div id={id} className="alert" role="alert" tabIndex={-1}>
       <AlertIcon />
       <div className="alert-text">
         <strong className="alert-title">{title}</strong>

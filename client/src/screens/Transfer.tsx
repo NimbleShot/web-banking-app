@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type SyntheticEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
 import type { components } from '../../../api/generated/schema';
 import { api, attempt, failureMessage, type Failure } from '../api/client';
-import { authHeaders } from '../auth/session';
+import { authHeaders, readToken } from '../auth/session';
 import { useSessionEnd } from '../auth/useSessionEnd';
 import { FormAlert } from '../components/Alerts';
 import { Field, Input } from '../components/Field';
@@ -11,8 +11,9 @@ import { ArrowIcon } from '../components/icons';
 import { Page } from '../components/Page';
 import { formatBalance } from '../format';
 import { checkAmount } from '../forms/amount';
-import { checkEmail } from '../forms/rules';
+import { checkEmail, EMAIL_MESSAGE } from '../forms/rules';
 import { rememberSent } from '../motion/justSent';
+import { useOnScreen } from '../useOnScreen';
 
 const TO_ID = 'transfer-to';
 const AMOUNT_ID = 'transfer-amount';
@@ -36,7 +37,7 @@ function fieldErrors(failure: Failure): Errors | null {
       return { amount: "That's more than your balance." };
     case 'VALIDATION_FAILED': {
       const { toEmail, amount } = failure.fields;
-      return toEmail || amount ? { to: toEmail, amount } : null;
+      return toEmail || amount ? { to: toEmail ? EMAIL_MESSAGE : undefined, amount } : null;
     }
     default:
       return null;
@@ -46,6 +47,7 @@ function fieldErrors(failure: Failure): Errors | null {
 export function Transfer() {
   const navigate = useNavigate();
   const endIfExpired = useSessionEnd();
+  const onScreen = useOnScreen();
   // Set before the request starts, so a double click can never send the money twice.
   const sending = useRef(false);
   const [account, setAccount] = useState<components['schemas']['Account'] | null>(null);
@@ -93,6 +95,7 @@ export function Transfer() {
 
     sending.current = true;
     setBusy(true);
+    const sentAs = readToken();
     const result = await attempt(() =>
       api.POST('/api/v1/transfers', {
         headers: authHeaders(),
@@ -101,9 +104,12 @@ export function Transfer() {
     );
 
     if (result.ok) {
-      // The dashboard loads the balance and the new record from the server, and counts it.
+      // A late answer for someone who has since signed out, or in as someone else, isn't theirs.
+      if (readToken() !== sentAs) return;
+      // The dashboard loads the balance and the new record from the server, and counts it. If the
+      // user already went back to it, it reloads when it hears of the transfer.
       rememberSent(result.data.transaction.id);
-      void navigate('/dashboard', { replace: true });
+      if (onScreen.current) void navigate('/dashboard', { replace: true });
       return;
     }
     const { failure } = result;
@@ -117,6 +123,11 @@ export function Transfer() {
       setProblem({
         title: "We can't tell if this transfer went through.",
         body: 'Check your transactions before you send it again.',
+      });
+      // The money may have left, so the balance from before the transfer is no longer offered.
+      setAccount(null);
+      void attempt(() => api.GET('/api/v1/me', { headers: authHeaders() })).then((me) => {
+        if (me.ok) setAccount(me.data);
       });
     } else setProblem({ title: failureMessage(failure) });
   }

@@ -14,7 +14,8 @@ type CodeFieldProps = {
 
 /**
  * One real input (so paste and the phone's one-time-code autofill work) lying invisibly over six
- * drawn cells.
+ * drawn cells. It has no length limit of its own: the browser would cut a pasted " 123 456" short
+ * before the spaces are taken out, so the digits are capped afterwards instead.
  */
 export function CodeField({
   legend,
@@ -56,7 +57,6 @@ export function CodeField({
           type="text"
           inputMode="numeric"
           autoComplete="one-time-code"
-          maxLength={CODE_LENGTH}
           aria-label={inputLabel}
           aria-invalid={invalid}
           aria-describedby={describedBy}

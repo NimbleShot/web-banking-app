@@ -8,12 +8,14 @@ import { Field, Input } from '../components/Field';
 import { ArrowIcon } from '../components/icons';
 import { PageTitle } from '../components/Page';
 import { StepHeading } from '../components/StepHeading';
-import { checkEmail } from '../forms/rules';
+import { checkEmail, EMAIL_MESSAGE } from '../forms/rules';
+import { useOnScreen } from '../useOnScreen';
 
 const EMAIL_ID = 'forgot-email';
 
 export function Forgot() {
   const navigate = useNavigate();
+  const onScreen = useOnScreen();
   const [email, setEmail] = useState(() => getResetDraft()?.email ?? '');
   const [error, setError] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
@@ -47,11 +49,12 @@ export function Forgot() {
 
       if (!result.ok) {
         const { failure } = result;
-        if (failure.kind === 'problem' && failure.fields.email) showError(failure.fields.email);
+        if (failure.kind === 'problem' && failure.fields.email) showError(EMAIL_MESSAGE);
         else setProblem(failureMessage(failure));
         return;
       }
     }
+    if (!onScreen.current) return;
     saveResetDraft(check.value, Date.now());
     void navigate('/reset');
   }

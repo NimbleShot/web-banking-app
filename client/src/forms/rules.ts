@@ -4,10 +4,12 @@ export type Check = { ok: true; value: string } | { ok: false; message: string }
 
 const EMAIL_MAX_LENGTH = 254;
 const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+/** Also shown for an email the server refuses, so its validator's wording never reaches the user. */
+export const EMAIL_MESSAGE = 'Enter a valid email address.';
 
 export function checkEmail(text: string): Check {
   if (text.length > EMAIL_MAX_LENGTH || !EMAIL_SHAPE.test(text)) {
-    return { ok: false, message: 'Enter a valid email address.' };
+    return { ok: false, message: EMAIL_MESSAGE };
   }
   return { ok: true, value: text };
 }

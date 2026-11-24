@@ -15,6 +15,7 @@ import { NewCodeButton, PasscodeAlerts, ResendRow } from '../components/Passcode
 import { StepHeading } from '../components/StepHeading';
 import { CODE_LENGTH } from '../forms/passcode';
 import { usePasscode } from '../forms/usePasscode';
+import { useOnScreen } from '../useOnScreen';
 
 const ALERT_ID = 'verify-alert';
 
@@ -27,9 +28,11 @@ export function Verify() {
 
 function VerifyForm({ draft }: { draft: SignUpDraft }) {
   const navigate = useNavigate();
+  const onScreen = useOnScreen();
   const inputRef = useRef<HTMLInputElement>(null);
   const lockButtonRef = useRef<HTMLButtonElement>(null);
   const flow = usePasscode({
+    alertId: ALERT_ID,
     inputRef,
     lockButtonRef,
     progress: draft,
@@ -55,8 +58,10 @@ function VerifyForm({ draft }: { draft: SignUpDraft }) {
       ),
     );
     if (result.ok) {
-      saveToken(result.data.accessToken);
+      // The account exists either way. Only a user still on this screen is signed in to it.
       clearSignUpDraft();
+      if (!onScreen.current) return;
+      saveToken(result.data.accessToken);
       void navigate('/dashboard', { replace: true });
     }
   }

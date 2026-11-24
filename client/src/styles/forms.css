@@ -323,6 +323,11 @@
   box-shadow: 0 0 32px -6px rgb(239 68 68 / 0.5);
 }
 
+/* It holds the focus only while a locked code's button counts down; it is not a control. */
+.alert:focus-visible {
+  outline: none;
+}
+
 .alert:has(+ .form-login) {
   margin-bottom: 24px;
 }
