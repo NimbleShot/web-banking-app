@@ -202,6 +202,28 @@ describe('failure and session states', () => {
       cy.wait(1000).then(() => expect(appCalls).to.equal(2));
     });
   });
+  it('[TX-9] after a lost answer, sending the same transfer again moves the money once and reaches the dashboard', () => {
+    const other = uniqueEmail();
+    registerUser(other);
+    tokenOf(uniqueEmail()).then((token: string) => {
+      balanceOf(token).then((before) => {
+        // The server makes the first transfer; only its answer is lost.
+        cy.intercept({ method: 'POST', url: TRANSFERS, times: 1 }, (req) => {
+          req.continue((res) => res.send({ forceNetworkError: true }));
+        });
+        visitSignedIn('/transfer', token);
+        fillTransfer(other, '4.35');
+        submitButton().click();
+        cy.contains('[role="alert"]', UNKNOWN);
+
+        submitButton().click();
+
+        cy.location('pathname').should('eq', '/dashboard');
+        balanceOf(token).should('equal', before - 435);
+      });
+    });
+  });
+
   it('[UX-7] after a transfer whose answer was lost, the screen shows the balance the server now holds', () => {
     const other = uniqueEmail();
     registerUser(other);
