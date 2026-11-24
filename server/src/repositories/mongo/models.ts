@@ -40,6 +40,8 @@ export type TransactionDocument = {
   /** Positive integer agorot. */
   amount: number;
   createdAt: Date;
+  /** The request's one-time key (docs/decisions/0016); absent on a transfer stored without one. */
+  idempotencyKey?: string;
 };
 
 /**
@@ -109,12 +111,19 @@ const transactionSchema = new Schema<TransactionDocument>(
     toEmail: { type: String, required: true },
     amount: { type: Number, required: true },
     createdAt: { type: Date, required: true },
+    idempotencyKey: { type: String },
   },
   { ...options, collection: 'transactions' },
 );
 // Each side's list, newest first.
 transactionSchema.index({ fromUserId: 1, createdAt: -1 });
 transactionSchema.index({ toUserId: 1, createdAt: -1 });
+// One record per sender and key (docs/decisions/0016). Partial: records stored without a key don't
+// collide with each other.
+transactionSchema.index(
+  { fromUserId: 1, idempotencyKey: 1 },
+  { unique: true, partialFilterExpression: { idempotencyKey: { $type: 'string' } } },
+);
 
 function createModels(connection: Connection) {
   return {

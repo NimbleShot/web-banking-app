@@ -205,6 +205,10 @@ export interface paths {
          *     debit, the credit and the transaction record happen together or not at all, and the
          *     debit succeeds only if the balance covers the amount, so concurrent transfers can't
          *     overdraw. A pending or unknown recipient gets `RECIPIENT_NOT_FOUND`.
+         *
+         *     The record keeps the request's `Idempotency-Key`, so a repeated request moves money once
+         *     (docs/decisions/0016): a repeat answers 201 with the first transfer's record and moves
+         *     nothing, even when the copies arrive together.
          */
         post: operations["createTransfer"];
         delete?: never;
@@ -326,14 +330,17 @@ export interface components {
         };
         TransferResult: {
             transaction: components["schemas"]["Transaction"];
-            /** @description The sender's balance after the transfer, in agorot. */
+            /**
+             * @description The sender's balance after the transfer, in agorot. On a repeat it is the balance
+             *     now, which differs from the first answer's if money moved in between.
+             */
             balance: number;
         };
         /**
          * @description The error catalogue. Clients branch on `code`, never on `title` or `detail`.
          * @enum {string}
          */
-        ErrorCode: "VALIDATION_FAILED" | "EMAIL_TAKEN" | "PASSCODE_INVALID" | "INVALID_CREDENTIALS" | "UNAUTHORIZED" | "RECIPIENT_NOT_FOUND" | "SELF_TRANSFER" | "INSUFFICIENT_FUNDS" | "RATE_LIMITED" | "NOT_FOUND" | "INTERNAL_ERROR";
+        ErrorCode: "VALIDATION_FAILED" | "EMAIL_TAKEN" | "PASSCODE_INVALID" | "INVALID_CREDENTIALS" | "UNAUTHORIZED" | "RECIPIENT_NOT_FOUND" | "SELF_TRANSFER" | "INSUFFICIENT_FUNDS" | "IDEMPOTENCY_KEY_REUSED" | "RATE_LIMITED" | "NOT_FOUND" | "INTERNAL_ERROR";
         /** @description An RFC 9457 problem document with the app's error `code`. */
         Problem: {
             /**
@@ -651,7 +658,15 @@ export interface operations {
     createTransfer: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                /**
+                 * @description A UUID the client makes once per transfer and sends again only on a repeat of that
+                 *     transfer. Keys belong to their sender and never expire. The same key with another
+                 *     recipient or amount answers 422 `IDEMPOTENCY_KEY_REUSED`. A refused transfer keeps no
+                 *     key, so its repeat runs the checks again.
+                 */
+                "Idempotency-Key": string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -661,7 +676,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description The transfer happened. */
+            /** @description The transfer happened, or this is a repeat of it (the same key, recipient and amount). */
             201: {
                 headers: {
                     [name: string]: unknown;

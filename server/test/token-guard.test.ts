@@ -22,6 +22,7 @@ import {
   tokenFor,
   TRANSACTIONS,
   TRANSFERS,
+  transferKey,
   UNAUTHORIZED,
 } from './support/auth';
 import { type Harness, MINUTE, SECOND, validSignUp } from './support/sign-up';
@@ -38,7 +39,10 @@ const securedOperations: [string, (h: Harness, headers: Record<string, string>) 
   [
     ['getMe', (h, headers) => request(h.app).get(ME).set(headers)],
     ['listTransactions', (h, headers) => request(h.app).get(TRANSACTIONS).set(headers)],
-    ['createTransfer', (h, headers) => request(h.app).post(TRANSFERS).set(headers).send(transfer)],
+    [
+      'createTransfer',
+      (h, headers) => request(h.app).post(TRANSFERS).set(transferKey()).set(headers).send(transfer),
+    ],
   ];
 
 /** The same token with its payload swapped for `payload`, keeping the original signature. */
@@ -206,7 +210,11 @@ describe('DB-1 the account is protected: no access without a valid token', () =>
         await storedUserWithToken(h, 'omer@example.com');
         // One transfer already made, so the record store and both balances hold something to
         // disturb.
-        const made = await request(h.app).post(TRANSFERS).set(bearer(token)).send(transfer);
+        const made = await request(h.app)
+          .post(TRANSFERS)
+          .set(bearer(token))
+          .set(transferKey())
+          .send(transfer);
         expect(made.status).toBe(201);
         const stores = () => ({ users: h.users.snapshot(), records: h.transactions.snapshot() });
         const before = stores();

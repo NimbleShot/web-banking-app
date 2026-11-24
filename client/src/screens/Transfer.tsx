@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type SyntheticEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
 import type { components } from '../../../api/generated/schema';
 import { api, attempt, failureMessage, type Failure } from '../api/client';
+import { transferRequest } from '../api/transfer';
 import { authHeaders, readToken } from '../auth/session';
 import { useSessionEnd } from '../auth/useSessionEnd';
 import { FormAlert } from '../components/Alerts';
@@ -98,8 +99,8 @@ export function Transfer() {
     const sentAs = readToken();
     const result = await attempt(() =>
       api.POST('/api/v1/transfers', {
+        ...transferRequest(toCheck.value, amountCheck.agorot),
         headers: authHeaders(),
-        body: { toEmail: toCheck.value, amount: amountCheck.agorot },
       }),
     );
 

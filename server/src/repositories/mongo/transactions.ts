@@ -1,11 +1,12 @@
 // Transfers and their records in MongoDB (docs/decisions/0003, 0013): one record per transfer,
 // read by both sides, and the money move as one transaction.
 import { type ClientSession, type Connection, Types } from 'mongoose';
-import type {
-  TransactionRecord,
-  TransactionRepository,
-  TransferOutcome,
-  TransferRequest,
+import {
+  type TransactionRecord,
+  type TransactionRepository,
+  type TransferOutcome,
+  type TransferRequest,
+  isRepeatOf,
 } from '../transactions';
 import type { Models, TransactionDocument, UserDocument } from './models';
 
@@ -20,9 +21,10 @@ const toRecord = (doc: TransactionDocument): TransactionRecord => ({
 });
 
 /**
- * The transfer is one transaction: the checks, the conditional debit, the credit and the record
- * commit together or not at all (TX-8). Two transfers that touch the same balance conflict, and
- * MongoDB re-runs the later one, which then sees the new balance.
+ * The transfer is one transaction: the sender's key, the checks, the conditional debit, the
+ * credit and the record commit together or not at all (TX-8). Two transfers that touch the same
+ * balance conflict, and MongoDB re-runs the later one, which then sees the new balance and, for a
+ * repeat sent at the same time, the record it should answer with (TX-9).
  */
 export class MongoTransactionRepository implements TransactionRepository {
   constructor(
@@ -30,11 +32,29 @@ export class MongoTransactionRepository implements TransactionRepository {
     protected readonly models: Models,
   ) {}
 
-  transfer({ fromUserId, toEmail, amount, at }: TransferRequest): Promise<TransferOutcome> {
+  transfer({
+    fromUserId,
+    toEmail,
+    amount,
+    at,
+    idempotencyKey,
+  }: TransferRequest): Promise<TransferOutcome> {
     return this.connection.transaction(async (session): Promise<TransferOutcome> => {
       const { users } = this.models;
       const sender = await users.findById(fromUserId).session(session).lean<UserDocument>();
       if (!sender) return { result: 'unknown-sender' };
+      // A key the sender already used: its transfer happened, so nothing is checked or written.
+      if (idempotencyKey !== undefined) {
+        const earlier = await this.models.transactions
+          .findOne({ fromUserId: sender._id, idempotencyKey })
+          .session(session)
+          .lean<TransactionDocument>();
+        if (earlier) {
+          const record = toRecord(earlier);
+          if (!isRepeatOf(record, toEmail, amount)) return { result: 'key-reused' };
+          return { result: 'done', record, balance: sender.balance };
+        }
+      }
       // The contract's checks (400) came first; then self, recipient and funds, in that order.
       const recipient = await users
         .findOne({ email: toEmail.toLowerCase() })
@@ -53,6 +73,7 @@ export class MongoTransactionRepository implements TransactionRepository {
         toEmail: recipient.email,
         amount,
         createdAt: new Date(at),
+        ...(idempotencyKey !== undefined && { idempotencyKey }),
       });
       return { result: 'done', record, balance };
     });

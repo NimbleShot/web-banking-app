@@ -26,20 +26,33 @@ export type TransferRequest = {
   amount: number;
   /** The record's time, from the app's clock. */
   at: Date;
+  /**
+   * The request's one-time key (docs/decisions/0016), kept with the record. The contract requires
+   * it on every request; a transfer stored without one is never matched as a repeat.
+   */
+  idempotencyKey?: string;
 };
 
 export type TransferOutcome =
+  /** Also a repeat of an earlier transfer: its record, the balance now, and nothing written. */
   | { result: 'done'; record: TransactionRecord; balance: number }
   /** The sender is no longer in the store (it was there at the token check). */
   | { result: 'unknown-sender' }
+  /** The sender's key belongs to a transfer with another recipient or amount. */
+  | { result: 'key-reused' }
   | { result: 'self-transfer' }
   | { result: 'recipient-not-found' }
   | { result: 'insufficient-funds' };
 
+/** A repeat names the earlier transfer's recipient (in any letter case) and amount. */
+export function isRepeatOf(record: TransactionRecord, toEmail: string, amount: number): boolean {
+  return record.toEmail === toEmail.toLowerCase() && record.amount === amount;
+}
+
 export type TransactionRepository = {
   /**
-   * The whole money move as one step: the checks, the conditional debit, the credit and the
-   * record, all or nothing.
+   * The whole money move as one step: the sender's key, the checks, the conditional debit, the
+   * credit and the record, all or nothing. A key the sender already used writes nothing.
    */
   transfer(request: TransferRequest): Promise<TransferOutcome>;
   /**
@@ -58,12 +71,27 @@ const copy = (record: TransactionRecord): TransactionRecord => structuredClone(r
  */
 export class InMemoryTransactionRepository implements TransactionRepository {
   private readonly records: TransactionRecord[] = [];
+  /** Each stored key's record, by sender and key; MongoDB keeps the key on the record itself. */
+  private readonly byKey = new Map<string, TransactionRecord>();
 
   constructor(private readonly users: InMemoryUserRepository) {}
 
-  async transfer({ fromUserId, toEmail, amount, at }: TransferRequest): Promise<TransferOutcome> {
+  async transfer({
+    fromUserId,
+    toEmail,
+    amount,
+    at,
+    idempotencyKey,
+  }: TransferRequest): Promise<TransferOutcome> {
     const sender = this.users.storedById(fromUserId);
     if (!sender) return { result: 'unknown-sender' };
+    // A key the sender already used: its transfer happened, so nothing is checked or written.
+    const keyOf = idempotencyKey === undefined ? undefined : `${sender.id}\n${idempotencyKey}`;
+    const earlier = keyOf === undefined ? undefined : this.byKey.get(keyOf);
+    if (earlier) {
+      if (!isRepeatOf(earlier, toEmail, amount)) return { result: 'key-reused' };
+      return { result: 'done', record: copy(earlier), balance: sender.balance };
+    }
     // The contract's checks (400) came first; then self, recipient and funds, in that order.
     const recipient = this.users.storedByEmail(toEmail);
     if (recipient?.id === sender.id) return { result: 'self-transfer' };
@@ -88,12 +116,14 @@ export class InMemoryTransactionRepository implements TransactionRepository {
         createdAt: new Date(at),
       };
       this.insertRecord(record);
+      if (keyOf !== undefined) this.byKey.set(keyOf, record);
       return { result: 'done', record: copy(record), balance: sender.balance };
     } catch (error) {
       sender.balance = start.senderBalance;
       recipient.balance = start.recipientBalance;
       // Records are only ever appended, and nothing else ran during the step.
       this.records.length = start.records;
+      if (keyOf !== undefined) this.byKey.delete(keyOf);
       throw error;
     }
   }

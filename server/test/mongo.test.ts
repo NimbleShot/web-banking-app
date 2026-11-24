@@ -21,7 +21,7 @@ import {
 import { createPasscodeService, PASSCODE_RULES } from '../src/services/passcodes';
 import { mongoStorage, openStorage } from '../src/storage';
 import { buildTestHarness, TEST_SECRETS, testConfig } from './support/app';
-import { bearer, LOGIN, ME, TRANSACTIONS, TRANSFERS } from './support/auth';
+import { bearer, LOGIN, ME, TRANSACTIONS, TRANSFERS, transferKey } from './support/auth';
 import { ManualClock } from './support/clock';
 import { runServer } from './support/run-server';
 import { SIGN_UP, validSignUp, VERIFY } from './support/sign-up';
@@ -351,6 +351,7 @@ describe('DM-1 with a database address set, the app keeps its data in MongoDB', 
     const sent = await request(first.app)
       .post(TRANSFERS)
       .set(bearer(dana))
+      .set(transferKey())
       .send({ toEmail: 'omer@example.com', amount: 1_250 });
     expect(sent.status).toBe(201);
     expect(sent.body).toMatchObject({ balance: danaBefore - 1_250 });

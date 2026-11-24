@@ -40,7 +40,7 @@ export function sendMoney(token: string, toEmail: string, amount: number) {
   return cy.request({
     method: 'POST',
     url: `${apiUrl()}/api/v1/transfers`,
-    headers: { Authorization: `Bearer ${token}` },
+    headers: { Authorization: `Bearer ${token}`, 'Idempotency-Key': crypto.randomUUID() },
     body: { toEmail, amount },
   });
 }

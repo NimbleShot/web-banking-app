@@ -44,7 +44,7 @@ const DIAGRAMS = {
     text: ['expired', 'POST /api/v1/auth/password/forgot', 'POST /api/v1/auth/password/reset'],
   },
   'transfer.md': {
-    codes: ['RECIPIENT_NOT_FOUND', 'INSUFFICIENT_FUNDS'],
+    codes: ['RECIPIENT_NOT_FOUND', 'INSUFFICIENT_FUNDS', 'IDEMPOTENCY_KEY_REUSED'],
     text: ['abortTransaction', 'rollback'],
   },
 };

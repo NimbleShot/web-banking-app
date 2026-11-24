@@ -25,7 +25,7 @@ info:
     | `users` | verified user | a random UUID, the token's `sub` | `email` (lowercased), `phone` (E.164), `passwordHash` (argon2id), `balance` (integer agorot), `createdAt` | `email`, unique |
     | `pendingSignUps` | email waiting for its passcode | the lowercased email | `createdAt`, `passcode` | expiry on `createdAt` (25 h) |
     | `passwordResets` | email that asked for a reset | the lowercased email | `passcode`, `used` | expiry on `passcode.issuedAt` (2 h) |
-    | `transactions` | transfer, read by both sides | a MongoDB ObjectId (creation order) | `fromUserId`, `toUserId`, `fromEmail`, `toEmail`, `amount` (positive agorot), `createdAt` | (`fromUserId`, `createdAt`) and (`toUserId`, `createdAt`) |
+    | `transactions` | transfer, read by both sides | a MongoDB ObjectId (creation order) | `fromUserId`, `toUserId`, `fromEmail`, `toEmail`, `amount` (positive agorot), `createdAt`, `idempotencyKey` (the request's key) | (`fromUserId`, `createdAt`), (`toUserId`, `createdAt`), and (`fromUserId`, `idempotencyKey`), unique where the key exists |
 
     - `passcode` is `{ hmac, issuedAt, wrongTries, sentAt[] }`: an HMAC of the passcode, never the
       passcode itself (docs/decisions/0001).
@@ -33,7 +33,8 @@ info:
       server's clock, and a record is removed an hour after those rules stop counting it.
     - A transfer is one transaction: the debit (only if the balance covers it), the credit and the
       record commit together or not at all, and a conflicting concurrent transfer is retried
-      (docs/decisions/0003).
+      (docs/decisions/0003). Before any write it looks for the sender's record with the request's
+      key; finding one, it writes nothing (docs/decisions/0016).
   license:
     name: MIT
     identifier: MIT
@@ -358,7 +359,24 @@ paths:
         debit, the credit and the transaction record happen together or not at all, and the
         debit succeeds only if the balance covers the amount, so concurrent transfers can't
         overdraw. A pending or unknown recipient gets `RECIPIENT_NOT_FOUND`.
-      x-requirements: [TX-1, TX-2, TX-3, TX-4, TX-5, TX-6, TX-7, TX-8]
+
+        The record keeps the request's `Idempotency-Key`, so a repeated request moves money once
+        (docs/decisions/0016): a repeat answers 201 with the first transfer's record and moves
+        nothing, even when the copies arrive together.
+      x-requirements: [TX-1, TX-2, TX-3, TX-4, TX-5, TX-6, TX-7, TX-8, TX-9]
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: |
+            A UUID the client makes once per transfer and sends again only on a repeat of that
+            transfer. Keys belong to their sender and never expire. The same key with another
+            recipient or amount answers 422 `IDEMPOTENCY_KEY_REUSED`. A refused transfer keeps no
+            key, so its repeat runs the checks again.
+          schema:
+            type: string
+            format: uuid
+            examples: [3f0e9a52-8c1d-4b7e-9f26-5d4c3b2a1e0f]
       requestBody:
         required: true
         content:
@@ -367,7 +385,7 @@ paths:
               $ref: '#/components/schemas/CreateTransferRequest'
       responses:
         '201':
-          description: The transfer happened.
+          description: The transfer happened, or this is a repeat of it (the same key, recipient and amount).
           content:
             application/json:
               schema:
@@ -401,6 +419,12 @@ paths:
                     title: Insufficient funds
                     status: 422
                     code: INSUFFICIENT_FUNDS
+                IDEMPOTENCY_KEY_REUSED:
+                  value:
+                    type: about:blank
+                    title: This key belongs to another transfer
+                    status: 422
+                    code: IDEMPOTENCY_KEY_REUSED
         '500':
           $ref: '#/components/responses/InternalError'
 
@@ -614,7 +638,9 @@ components:
         balance:
           type: integer
           minimum: 0
-          description: The sender's balance after the transfer, in agorot.
+          description: |
+            The sender's balance after the transfer, in agorot. On a repeat it is the balance
+            now, which differs from the first answer's if money moved in between.
 
     ErrorCode:
       type: string
@@ -628,6 +654,7 @@ components:
         - RECIPIENT_NOT_FOUND
         - SELF_TRANSFER
         - INSUFFICIENT_FUNDS
+        - IDEMPOTENCY_KEY_REUSED
         - RATE_LIMITED
         - NOT_FOUND
         - INTERNAL_ERROR
