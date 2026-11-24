@@ -47,6 +47,27 @@ and system packages or binaries the project depends on. A removal deletes the ro
 | `@types/cors` | dev | ^2.8 (2.8.19) | server | P02 | `cors` types |
 | `mongodb-memory-server` | dev | ^11.3 (11.3.0) | server | P03 | A throwaway MongoDB replica set for the Mongo tests and `test:api` (transactions need a replica set) |
 | `mongod` | system | 8.2.6 (`mongodb-memory-server`'s default) | — | P03 | Downloaded on first use (~120 MB) into `~/.cache/mongodb-binaries`, locally and on the CI runner |
+| `react` | runtime | ^19.3 (19.3.1) | client | P05 | The UI library |
+| `react-dom` | runtime | ^19.3 (19.3.1) | client | P05 | Renders React in the browser |
+| `react-router` | runtime | ^8.5 (8.5.2) | client | P05 | Client-side routes, in data mode. Never `react-router-dom` (gotcha 10) |
+| `@fontsource-variable/inter` | runtime | ^5.3 (5.3.0) | client | P05 | The design's body font, self-hosted ([ADR-0014](decisions/0014-client-plain-css-few-libraries.md)) |
+| `@fontsource-variable/jetbrains-mono` | runtime | ^5.3 (5.3.0) | client | P05 | The design's label font, self-hosted |
+| `@fontsource-variable/unbounded` | runtime | ^5.3 (5.3.0) | client | P05 | The design's heading font, self-hosted |
+| `vite` | dev | ^8.3 (8.3.8) | client | P05 | The dev server, with `/api` proxied to the API, and the production build (in `check`) |
+| `@vitejs/plugin-react` | dev | ^6.3 (6.3.0) | client | P05 | JSX and fast refresh for Vite |
+| `@types/react` | dev | ^19.3 (19.3.0) | client | P05 | React types |
+| `@types/react-dom` | dev | ^19.3 (19.3.0) | client | P05 | React DOM types |
+| `eslint-plugin-react-hooks` | dev | ^7.1 (7.1.1) | client | P05 | Lints the rules of hooks |
+| `eslint-plugin-react-refresh` | dev | ^0.5 (0.5.8) | client | P05 | Keeps component files compatible with fast refresh |
+| `create-vite` | npx | 9.3.4 | client | P05 | The reference template for `client/` (`--template react-ts --eslint`), run once. TypeScript and ESLint stay at the repo root, so there is one copy of each |
+| `openapi-fetch` | runtime | ^0.17 (0.17.0) | client | P05 | API calls typed from the generated contract ([ADR-0006](decisions/0006-contract-enforcement-and-api-conventions.md)) |
+| `jest` | dev | ^30.5 (30.5.2) | client | P05 | Unit tests of the form, passcode and money rules; `npm test` in `check` |
+| `@jest/globals` | dev | ^30.5 (30.5.2) | client | P05 | Typed `describe`/`it`/`expect` imports |
+| `@swc/jest` | dev | ^0.2.39 (0.2.39) | client | P05 | Strips TypeScript types for Jest |
+| `@swc/core` | dev | ^1.16 (1.16.22) | client | P05 | The compiler `@swc/jest` drives |
+| `cypress` | dev | ^16.3 (16.3.0) | client | P05 | Browser tests against the real app (`npm run test:e2e`). CI skips its binary until the browser tests join CI |
+| `xvfb`, `libgbm-dev`, `libnotify-dev` | system | Ubuntu 24.04 packages | — | P05 | The virtual display and libraries Cypress needs on a headless Linux machine |
+| Google Chrome | system | 154 (already on the machine) | — | P05 | The browser `npm run test:e2e` runs in (gotcha 19). Needed wherever the browser tests run. |
 
 Kinds: `dev` (devDependency) · `runtime` (dependency) · `npx` (pinned, never installed) ·
 `system` (apt package or binary on the server or CI runner).
@@ -54,7 +75,7 @@ Kinds: `dev` (devDependency) · `runtime` (dependency) · `npx` (pinned, never i
 ## At a glance
 
 ```
- Browser ──── React SPA (Vite, TS, MUI) ───────────── hosted on Vercel
+ Browser ──── React SPA (Vite, TS) ────────────────── hosted on Vercel
     │  HTTPS: REST + JSON           │  WebSocket (Socket.IO)
     ▼                               ▼
  Express API (Node, TS) ── Socket.IO server ───────── hosted on Render (Docker)
@@ -80,7 +101,7 @@ Kinds: `dev` (devDependency) · `runtime` (dependency) · `npx` (pinned, never i
 | Piece | Choice | Version | Notes |
 |-------|--------|---------|-------|
 | Express | **Fixed** | 5.3 | Express 5: a rejected promise in an async handler goes to your error middleware by itself (no try/catch wrapper needed). Wildcard routes changed syntax (`/*splat`). Most tutorials online are still Express 4 |
-| Validation | Requests validated against `openapi.yaml` by `express-openapi-validator` ([ADR-0006](decisions/0006-contract-enforcement-and-api-conventions.md)); **Zod** for env config and client forms | 4.6 | Zod covers email format (`z.email()`). For phone numbers, add `libphonenumber-js` and store E.164 (`+972…`) |
+| Validation | Requests validated against `openapi.yaml` by `express-openapi-validator` ([ADR-0006](decisions/0006-contract-enforcement-and-api-conventions.md)); **Zod** for env config; client forms use small hand-written checks ([ADR-0014](decisions/0014-client-plain-css-few-libraries.md)) | 4.6 | Zod covers email format (`z.email()`). The client accepts Israeli mobile numbers and sends E.164 (`+972…`) |
 | Passwords | Decided ([ADR-0010](decisions/0010-argon2id-passwords-and-jose-tokens.md)): `argon2`, argon2id at OWASP's minimum (19 MiB, 2 iterations) | 0.45 | Hash, never encrypt. bcrypt (6.0), set aside, silently uses only the first 72 bytes of a password |
 | JWT | Decided ([ADR-0010](decisions/0010-argon2id-passwords-and-jose-tokens.md)): `jose` (typed, no dependencies, also does RS256 for Jitsi) | 6.2 | ESM-only: see gotcha 14. `jsonwebtoken` (9.0) was set aside |
 | Security middleware | `helmet`, `cors`, `express-rate-limit` | 8.3 / 2.8 / 8.7 | Rate limits per client IP: [ADR-0011](decisions/0011-per-client-rate-limits.md) |
@@ -111,10 +132,10 @@ only a **hash** of it with an expiry, count wrong attempts, and limit re-sends.
 |-------|--------|---------|-------|
 | React | **Fixed** | 19.3 | — |
 | Build tool | **Vite** (`npm create vite@latest client -- --template react-ts --eslint`) | 8.3 | Without `--eslint`, create-vite 9 scaffolds TS 7 with Oxlint. Create React App is dead. Use a dev proxy (`server.proxy`) so `/api` calls go to Express without CORS during development. To reach the dev server from another machine, set `server.host` and add that host name to `server.allowedHosts` |
-| UI kit | **Material UI** (fixed) | 9.5 | `@mui/material` + Emotion + `@mui/icons-material`. Set one theme (colours, typography) from the Figma design |
+| UI kit | None: plain CSS with design tokens ([ADR-0014](decisions/0014-client-plain-css-few-libraries.md)) | — | Material UI 9 was considered and set aside: the custom design would override it on nearly every element |
 | Routing | **React Router** | 8.5 | Install `react-router@8`. **Never `react-router-dom`**: it still exists on npm and resolves to v7 (7.18). "Data mode" (`createBrowserRouter`) suits a Vite SPA. Protected routes = a layout route that redirects when not logged in |
-| Server state | Recommended: **TanStack Query** | 5.107 | Caching, loading and error states, refetch after a transfer. Optional. Plain `fetch` + `useEffect` works but gets messy |
-| Forms | Recommended: **React Hook Form** + Zod resolver | 7.92 | The same Zod rules on client and server |
+| Server state | One small loader over `openapi-fetch` ([ADR-0014](decisions/0014-client-plain-css-few-libraries.md)) | 0.17 | Two reads (account, transactions). TanStack Query was set aside; a later ADR can adopt it if realtime updates need it |
+| Forms | Small hand-written validators ([ADR-0014](decisions/0014-client-plain-css-few-libraries.md)) | — | Email, phone, password and amount. React Hook Form was set aside for forms of two to four fields; the server has the final say |
 | Design | **Figma** (fixed) | — | The free plan is enough to design 5 screens. The official remote Figma MCP server works on every plan, but the free Starter plan allows only 20 tool calls a month; paid or Education seats get 200 a day. Community servers (e.g. Framelink) are bound by Figma's REST rate limits too |
 
 ### Realtime and video
@@ -189,6 +210,9 @@ only a **hash** of it with an expiry, count wrong attempts, and limit re-sends.
     file, turning the `import()` into a `require`. The experimental `runtimeAdapters: { os }`
     client option also works but would put a test workaround into the app. Plain Node (the
     server, `test:api`) is unaffected. Checked 2026-11-19 (7.8.0).
+19. In `cypress run` with the bundled Electron, headless, the app's CSS and Web Animations stayed
+    `running` at time 0, and the same spec passed in Chrome → `test:e2e` runs in Chrome
+    (`--browser chrome`), which must be installed. Seen 2026-11-24 (Cypress 16.3, Chrome 154).
 
 ## Sources for these claims
 

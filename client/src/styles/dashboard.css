@@ -1,0 +1,327 @@
+/* The dashboard */
+.page-content-dashboard {
+  padding: 16px 24px 72px;
+}
+
+.dashboard {
+  display: flex;
+  flex: 0 1 640px;
+  flex-direction: column;
+  gap: 28px;
+  min-width: 0;
+}
+
+.dashboard > .alert {
+  margin: 0;
+}
+
+/* The balance */
+.balance {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+  text-align: center;
+}
+
+.balance-label {
+  margin: 0;
+  color: var(--text-accent);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+}
+
+/* The sent amount above the balance, while the two count together. */
+.balance-delta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  color: var(--tx-sent);
+  font-family: var(--font-mono);
+  font-size: clamp(20px, 2.4vw, 28px);
+  font-weight: 500;
+  text-shadow: var(--delta-glow);
+  opacity: 0;
+  transform: translateY(12px) scale(0.96);
+}
+
+.balance-delta-show,
+.balance-delta-count {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.balance-delta-show {
+  transition:
+    opacity 0.3s ease,
+    transform 0.4s var(--ease-move);
+}
+
+.balance-delta-land {
+  opacity: 0;
+  transform: translateY(-16px) scale(0.98);
+  transition:
+    opacity 0.45s ease,
+    transform 0.45s ease;
+}
+
+.balance-amount {
+  position: relative;
+  margin: 0 0 18px;
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: clamp(34px, 6.4vw, 76px);
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.balance-aura {
+  position: absolute;
+  inset: -20% -6%;
+  border-radius: 999px;
+  background: var(--aura-balance);
+  filter: blur(22px);
+}
+
+.balance-amount-long {
+  font-size: clamp(26px, 4.6vw, 54px);
+}
+
+.balance-value {
+  position: relative;
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: center;
+  text-shadow: var(--balance-glow);
+  transition: text-shadow 0.45s ease;
+}
+
+.balance-value-count {
+  text-shadow: var(--balance-glow-count);
+}
+
+.balance-value-land {
+  text-shadow: var(--balance-glow-land);
+}
+
+.balance-digit,
+.balance-mark {
+  display: inline-block;
+  text-align: center;
+}
+
+.balance-digit {
+  width: 0.88em;
+}
+
+.balance-mark {
+  width: 0.34em;
+}
+
+.balance-currency {
+  margin-left: 0.18em;
+  color: var(--text-accent);
+  font-family: var(--font-body);
+  font-size: 0.62em;
+  font-weight: 500;
+}
+
+.balance-send,
+.balance-send:hover {
+  display: inline-flex;
+  min-width: 220px;
+  padding: 0 28px;
+  color: #fff;
+  text-decoration: none;
+}
+
+/* The transactions */
+.tx-card {
+  flex: none;
+  padding: 28px 32px;
+}
+
+.tx-title {
+  margin: 0 0 12px;
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.tx-list {
+  max-height: 380px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  scrollbar-color: rgb(167 139 250 / 0.45) transparent;
+  scrollbar-width: thin;
+}
+
+.tx-row {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  padding: 14px 0;
+  border-top: 1px solid var(--row-line);
+}
+
+@keyframes tx-arrive {
+  from {
+    max-height: 0;
+    padding-block: 0;
+    opacity: 0;
+  }
+  to {
+    max-height: 96px;
+    opacity: 1;
+  }
+}
+
+.tx-row-arriving {
+  overflow: hidden;
+  animation: tx-arrive 0.6s var(--ease-move) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .balance-delta,
+  .balance-value {
+    transition: none;
+  }
+
+  .tx-row-arriving {
+    animation: none;
+  }
+}
+
+.tx-sent {
+  --tx-tone: var(--tx-sent);
+  --tx-fill: var(--tx-sent-fill);
+  --tx-edge: var(--tx-sent-edge);
+}
+
+.tx-received {
+  --tx-tone: var(--tx-received);
+  --tx-fill: var(--tx-received-fill);
+  --tx-edge: var(--tx-received-edge);
+}
+
+.tx-icon {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--tx-edge);
+  border-radius: 50%;
+  background: var(--tx-fill);
+  color: var(--tx-tone);
+}
+
+.tx-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.tx-who {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tx-when {
+  color: var(--text-faint);
+  font-size: 13px;
+}
+
+.tx-amount {
+  flex-shrink: 0;
+  color: var(--tx-tone);
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.tx-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  padding: 32px 16px 36px;
+  border-top: 1px solid var(--row-line);
+  text-align: center;
+}
+
+.tx-empty-title {
+  margin: 0;
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.tx-empty-body {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.tx-status {
+  margin: 0;
+  padding: 24px 0;
+  border-top: 1px solid var(--row-line);
+  color: var(--text-muted);
+  font-size: 14px;
+  text-align: center;
+}
+
+/* The send-money screen */
+.card-transfer {
+  flex-basis: 460px;
+}
+
+.input-amount {
+  padding-right: 44px;
+  font-family: var(--font-mono);
+}
+
+.input-currency {
+  position: absolute;
+  top: 0;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  height: 50px;
+  color: var(--text-muted);
+  font-size: 16px;
+  pointer-events: none;
+}
+
+.divider-transfer {
+  margin: 28px 0 20px;
+}
+
+@media (max-width: 520px) {
+  .page-content-dashboard {
+    padding: 16px 16px 64px;
+  }
+
+  .tx-card {
+    padding: 28px 22px;
+  }
+
+  .card-transfer {
+    flex-basis: 100%;
+  }
+}

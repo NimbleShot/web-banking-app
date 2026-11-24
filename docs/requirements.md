@@ -96,6 +96,20 @@ TX-6..8 are implied by the worksheet rather than written in it.
 | DM-5 | The storage layout is documented in Swagger | The contract's description lists the collections, their keys, fields and indexes, and lints clean |
 | DM-6 | Without a database address the server runs on in-memory storage, never in production | Development starts on memory; production without an address is refused, naming the variable; an unreachable database stops start-up with an error that never shows the address's password |
 
+### User interface (phase 5)
+| ID | Requirement | Acceptance check |
+|----|-------------|------------------|
+| UX-1 | The front end runs on the API in the app's visual design | The client builds and is part of the repo's checks; every screen uses the design's colours, fonts, glass card and background |
+| UX-2 | Sign-up and passcode screens | Valid details and the right code reach the dashboard. Each bad field, a taken email and a wrong code show their error. Tries left are shown; at zero the field locks and offers a new code. Israeli mobile numbers only. The password and phone are never written to browser storage |
+| UX-3 | Sign-in and sign-out screens | Correct details reach the dashboard; wrong ones show one message that marks both fields. Sign-out removes the token, shows a notice at login, and Back doesn't reopen the dashboard |
+| UX-4 | Password reset screens | Any well-formed email gets the same wording. A correct code with a matching new password ends at sign-in with a success notice. A wrong code shows tries left and locks at zero; a retype mismatch costs no try |
+| UX-5 | Dashboard screen | Signed-out visitors go to login. The balance and the newest 20 transactions show counterparty, signed amount and date. A new account shows the empty state |
+| UX-6 | Send-money screen | A valid transfer returns to the dashboard with the server's balance and record. Amounts become integer agorot without floating point. Each named error shows on its field and moves nothing |
+| UX-7 | Failure and session states | An ended session returns to login with a notice; a wrong code or password stays on its screen. Rate limits and server or connection failures show a message. A transfer whose answer was lost asks the user to check their transactions and is never retried automatically |
+| UX-8 | A browser test covers the main journey | Against a real server: sign up, read the code, reach the dashboard, send money, sign out |
+| UX-9 | Animated screen changes | Between sign-in, sign-up, code and reset screens the card slides and reshapes while the hero fades. The new form takes keyboard focus. With reduced motion, screens switch at once |
+| UX-10 | Animated balance after a transfer | The signed amount appears above the balance and both count until it is used up. Every frame adds up to the true balance in agorot and ends on the server's value. With reduced motion, the new balance appears at once |
+
 ### Reserved prefixes (minted when their phase is specified)
 `DM` Mongo (phase 3) · `DP` deployment (6) · `UX` Figma and theme (4, 5) · `RT` realtime (7) ·
 `CB` chatbot (8) · `AI` assistant (9) · `DK` Docker (10) · `VC` video call (11) · `QA` tests
@@ -145,7 +159,7 @@ The design choices the worksheet leaves open, and where each is settled.
 | 3 | What stops a duplicate email: a pre-check, a unique index, or both? What happens when two sign-ups race? | [ADR-0002](decisions/0002-pending-users-and-unique-email.md), superseded in part by [ADR-0007](decisions/0007-sign-up-sets-credentials-at-verification.md) |
 | 4 | How is money represented (float, integer minor units, Decimal128)? What range is the random balance? | [ADR-0003](decisions/0003-money-in-agorot-one-record-per-transfer.md) |
 | 5 | Transfer records: one per transfer read by both sides, or one per side? How is it made all-or-nothing? | [ADR-0003](decisions/0003-money-in-agorot-one-record-per-transfer.md) |
-| 6 | Where does the browser keep the login: a header token in memory/localStorage, or an httpOnly cookie (cross-site between `vercel.app` and `onrender.com`)? | [ADR-0004](decisions/0004-bearer-jwt-in-sessionstorage-client-logout.md) |
+| 6 | Where does the browser keep the login: a header token in memory/localStorage, or an httpOnly cookie (cross-site between `vercel.app` and `onrender.com`)? | [ADR-0004](decisions/0004-bearer-jwt-in-sessionstorage-client-logout.md), its 401 handling narrowed by [ADR-0015](decisions/0015-only-an-ended-session-signs-out.md) |
 | 7 | What does logout mean on the server, given a JWT stays valid until it expires? | [ADR-0004](decisions/0004-bearer-jwt-in-sessionstorage-client-logout.md) |
 | 8 | Passcode rules: validity, wrong-try limit, resend rate | [ADR-0001](decisions/0001-otp-by-email-and-passcode-rules.md) |
 | 9 | Who starts the video call, and how does the other side find out? | an ADR at phase 11 |

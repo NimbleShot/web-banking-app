@@ -18,6 +18,9 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+        env:
+          # The browser tests don't run in CI yet, so skip the large Cypress download.
+          CYPRESS_INSTALL_BINARY: '0'
       - run: npm run check
       - run: npm run test:api
         timeout-minutes: 5

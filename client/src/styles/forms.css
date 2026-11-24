@@ -1,0 +1,508 @@
+/* Forms */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin: 0;
+}
+
+.form-code {
+  gap: 22px;
+}
+
+.form-submit {
+  margin-top: 8px;
+}
+
+.form-status {
+  margin: 0 0 20px;
+  color: var(--text-info);
+  font-size: 14px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-login,
+.form-reset {
+  gap: 20px;
+}
+
+.field-label-row {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.field-label {
+  color: var(--text-soft);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.field-aside {
+  font-size: 14px;
+}
+
+.field-hint {
+  color: var(--text-faint);
+  font-size: 13px;
+}
+
+.field-error {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  color: var(--error-text);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.field-error > svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.field-ok {
+  color: var(--text-info);
+  font-size: 13px;
+}
+
+.field-error-link,
+.field-error-link:hover {
+  color: var(--alert-title);
+  text-decoration: underline;
+}
+
+.input {
+  width: 100%;
+  height: 50px;
+  padding: 0 16px;
+  border: 1px solid var(--field-border);
+  border-radius: 12px;
+  background: var(--field-fill);
+  color: #fff;
+  font: inherit;
+  font-size: 16px;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.input::placeholder {
+  color: var(--text-placeholder);
+}
+
+.input:focus {
+  border-color: var(--field-focus);
+  outline: none;
+  box-shadow: var(--focus-glow);
+}
+
+.input-bad,
+.input-bad:focus {
+  border: 1.5px solid var(--error);
+  background: var(--field-fill-strong);
+  box-shadow: var(--error-glow);
+}
+
+.input-wrap {
+  position: relative;
+}
+
+.input-with-toggle {
+  padding-right: 54px;
+}
+
+.input-toggle {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.phone-row {
+  display: flex;
+  gap: 8px;
+}
+
+.phone-row .input {
+  flex: 1;
+  min-width: 0;
+}
+
+.phone-prefix {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  height: 50px;
+  padding: 0 12px;
+  border: 1px solid var(--field-border);
+  border-radius: 12px;
+  background: var(--field-fill);
+  color: var(--text-soft);
+  font-family: var(--font-mono);
+  font-size: 15px;
+}
+
+/* Buttons */
+.button-primary {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+  height: 54px;
+  border: 1px solid rgb(255 255 255 / 0.22);
+  border-radius: 12px;
+  background: var(--button-fill);
+  color: #fff;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  box-shadow: var(--button-glow);
+  cursor: pointer;
+  transition: opacity 0.25s ease;
+}
+
+.button-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.button-lock:disabled {
+  opacity: 0.6;
+}
+
+.button-ghost {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  height: 44px;
+  padding: 0 16px;
+  border: 1px solid rgb(196 181 253 / 0.45);
+  border-radius: 12px;
+  background: rgb(8 5 18 / 0.45);
+  color: var(--text-soft);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.button-ghost:hover {
+  color: #fff;
+  border-color: rgb(196 181 253 / 0.8);
+}
+
+.link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-accent);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.link-button:hover:enabled {
+  color: #ede9fe;
+  text-decoration: underline;
+}
+
+.link-button:disabled {
+  color: var(--text-placeholder);
+  font-weight: 500;
+  cursor: not-allowed;
+}
+
+/* Card parts */
+.card-lead-tight {
+  margin-bottom: 24px;
+}
+
+.card-lead-form {
+  margin-bottom: 28px;
+}
+
+.card-lead-code {
+  margin-bottom: 28px;
+  line-height: 1.55;
+}
+
+.card-lead-reset {
+  margin-bottom: 22px;
+}
+
+.card-strong {
+  color: #fff;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.card-foot {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 15px;
+  text-align: center;
+}
+
+.divider {
+  height: 1px;
+  margin: 28px 0 22px;
+  background: linear-gradient(
+    90deg,
+    rgb(167 139 250 / 0),
+    rgb(167 139 250 / 0.35),
+    rgb(167 139 250 / 0)
+  );
+}
+
+.divider-login {
+  margin: 32px 0 24px;
+}
+
+.divider-code {
+  margin: 24px 0 20px;
+}
+
+.step-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 0 14px;
+}
+
+.step-label {
+  margin: 0;
+}
+
+.step-bars {
+  display: flex;
+  gap: 6px;
+}
+
+.step-bar {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgb(184 176 212 / 0.22);
+}
+
+.step-bar-on {
+  background: var(--color-glow-bright);
+  box-shadow: 0 0 10px var(--color-glow-soft);
+}
+
+/* Alerts */
+.alert {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin: 0 0 20px;
+  padding: 14px 16px;
+  border: 1px solid rgb(248 113 113 / 0.6);
+  border-radius: 12px;
+  background: rgb(127 29 29 / 0.32);
+  color: var(--alert-text);
+  box-shadow: 0 0 32px -6px rgb(239 68 68 / 0.5);
+}
+
+/* It holds the focus only while a locked code's button counts down; it is not a control. */
+.alert:focus-visible {
+  outline: none;
+}
+
+.alert:has(+ .form-login) {
+  margin-bottom: 24px;
+}
+
+.alert > svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.alert-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.alert-title {
+  color: var(--alert-title);
+  font-weight: 600;
+}
+
+.alert-link,
+.alert-link:hover {
+  color: var(--alert-title);
+  font-weight: 400;
+  text-decoration: underline;
+}
+
+@keyframes parsec-tries {
+  0% {
+    transform: scale(1.45);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.tries {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: 4px;
+  align-items: center;
+  min-width: 62px;
+  margin-left: auto;
+  padding-left: 14px;
+  border-left: 1px solid rgb(248 113 113 / 0.45);
+}
+
+.tries-number {
+  display: block;
+  color: var(--error);
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1;
+  text-shadow: 0 0 16px rgb(239 68 68 / 0.75);
+  animation: parsec-tries 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.tries-label {
+  color: var(--error-text);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+/* The six-cell code field */
+.code-field {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.code-legend {
+  margin: 0 0 10px;
+  padding: 0;
+}
+
+.code-wrap {
+  position: relative;
+}
+
+.code-cells {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.code-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 60px;
+  border: 1.5px solid var(--field-border);
+  border-radius: 12px;
+  background-color: rgb(8 5 18 / 0.45);
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 600;
+  transition:
+    border-color 0.25s ease,
+    box-shadow 0.25s ease,
+    background-color 0.25s ease;
+}
+
+.code-cell-filled {
+  border-color: #9c8fd0;
+  background-color: rgb(8 5 18 / 0.6);
+}
+
+.code-cell-active {
+  border-color: var(--color-glow-bright);
+  background-color: var(--field-fill-strong);
+  box-shadow: var(--focus-glow);
+}
+
+.code-cell-bad {
+  border-color: var(--error);
+  background-color: var(--field-fill-strong);
+  box-shadow: 0 0 18px 0 rgb(239 68 68 / 0.28);
+}
+
+.code-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: transparent;
+  font-size: 16px;
+  caret-color: transparent;
+  opacity: 0;
+  cursor: text;
+}
+
+.code-input:disabled {
+  cursor: not-allowed;
+}
+
+.resend-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  margin: 20px 0 0;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .input,
+  .button-primary,
+  .code-cell {
+    transition: none;
+  }
+
+  .tries-number {
+    animation: none;
+  }
+}
