@@ -97,11 +97,10 @@ export function Transfer() {
     sending.current = true;
     setBusy(true);
     const sentAs = readToken();
+    // Built before `attempt`, which reports any throw as a lost answer: a fault here is a bug.
+    const request = transferRequest(toCheck.value, amountCheck.agorot);
     const result = await attempt(() =>
-      api.POST('/api/v1/transfers', {
-        ...transferRequest(toCheck.value, amountCheck.agorot),
-        headers: authHeaders(),
-      }),
+      api.POST('/api/v1/transfers', { ...request, headers: authHeaders() }),
     );
 
     if (result.ok) {

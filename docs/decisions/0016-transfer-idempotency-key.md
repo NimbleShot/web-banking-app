@@ -2,7 +2,7 @@
 status: accepted
 date: 2026-11-24
 ---
-# 0016. A transfer carries a one-time key, and a repeat gets the first answer
+# 0016. A transfer carries a one-time key, and a repeat gets the first transfer's record
 
 **Context.** If a reused connection dies after the server finished a transfer and before any
 answer byte, Chrome resends the POST by itself: one `fetch` became three transfers. The

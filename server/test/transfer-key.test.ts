@@ -80,6 +80,28 @@ describe('TX-9 a repeated transfer request moves money once', () => {
     expect(h.transactions.snapshot()).toHaveLength(3);
   });
 
+  it('[TX-9] one UUID in capitals or with a urn:uuid: prefix is the same key: its repeats move nothing', async () => {
+    const h = buildTestHarness();
+    const dana = await account(h, DANA, 100_000);
+    await account(h, OMER, 0);
+    const key = randomUUID();
+
+    const first = await send(h, dana.token, { toEmail: OMER, amount: 1_000 }, key);
+    const spellings = [key.toUpperCase(), `urn:uuid:${key}`, `URN:UUID:${key.toUpperCase()}`];
+    const repeats = [];
+    for (const spelling of spellings) {
+      repeats.push(await send(h, dana.token, { toEmail: OMER, amount: 1_000 }, spelling));
+    }
+
+    expect(first.status).toBe(201);
+    for (const res of repeats) {
+      expect(res.status).toBe(201);
+      expect(res.body).toEqual(first.body);
+    }
+    expect(h.transactions.snapshot()).toHaveLength(1);
+    expect(balanceOf(h, dana.user.id)).toBe(99_000);
+  });
+
   it('[TX-9] five copies of one transfer sent at once move the money once, and every copy answers 201 with the same record', async () => {
     const h = buildTestHarness();
     const dana = await account(h, DANA, 100_000);
@@ -209,7 +231,7 @@ describe('TX-9 on MongoDB', () => {
       fromEmail: 'a@example.com',
       toEmail: 'b@example.com',
       amount: 1,
-      createdAt: new Date(),
+      createdAt: new Date('2026-01-01T08:00:00.000Z'),
       ...(idempotencyKey !== undefined && { idempotencyKey }),
     });
     const key = randomUUID();

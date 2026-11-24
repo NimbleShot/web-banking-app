@@ -184,8 +184,12 @@ export function createRoutes(deps: RouteDeps): Router {
   // money. Not rate-limited (docs/decisions/0011).
   router.post('/api/v1/transfers', async (req, res) => {
     const { toEmail, amount } = req.body as Schemas['CreateTransferRequest'];
-    // The contract's validator has already refused a missing or malformed key.
-    const idempotencyKey = req.get('Idempotency-Key') as string;
+    // The contract's validator has already refused a missing or malformed key. It accepts a UUID
+    // in any letter case and with a `urn:uuid:` prefix; the stores compare keys exactly, so every
+    // spelling of one UUID becomes the same key.
+    const idempotencyKey = (req.get('Idempotency-Key') as string)
+      .toLowerCase()
+      .replace(/^urn:uuid:/, '');
     const outcome = await transfers.send(authenticatedUserId(res), toEmail, amount, idempotencyKey);
     if (outcome.result !== 'sent') {
       sendProblem(res, refusal(outcome.result));

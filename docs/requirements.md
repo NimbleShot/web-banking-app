@@ -65,7 +65,7 @@ Fixed by the worksheet: **React** front end, **Node.js** server, **MongoDB**. UI
 | TX-6 | The amount is positive and has at most 2 decimal places | Zero, negative, non-numeric or over-precise amounts are rejected; nothing changes |
 | TX-7 | A user can't send money to themselves | Rejected with an error; nothing changes |
 | TX-8 | A transfer is all-or-nothing, even under concurrent requests | Both balances and the record(s) change together or not at all; two simultaneous transfers can't overdraw |
-| TX-9 | A repeated transfer request moves money once (phase 6) | Every transfer carries a one-time key, or is refused. A repeat with the same key, even two sent at once, moves nothing and gets the first transfer's answer; the same key with another recipient or amount is refused. The front end sends a new key per transfer |
+| TX-9 | A repeated transfer request moves money once (phase 6) | Every transfer carries a one-time key, or is refused. A repeat with the same key, even two sent at once, moves nothing and answers with the first transfer's record and the balance now; the same key with another recipient or amount is refused. The front end sends a new key per transfer |
 
 TX-6..8 are implied by the worksheet rather than written in it. TX-9 was added in phase 6: a
 browser can resend a request whose answer was lost.
