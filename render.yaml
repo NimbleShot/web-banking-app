@@ -1,0 +1,81 @@
+# The deploy as a Render Blueprint (docs/decisions/0017): the API as a Node web service and the
+# pages as a static site. Each `sync: false` value is asked for once, when the Blueprint is
+# created; docs/deploy.md lists them and the order of the first deploy.
+services:
+  - type: web
+    name: parsec-bank-api
+    runtime: node
+    plan: free
+    region: frankfurt
+    # Dev dependencies too: NODE_ENV=production would skip TypeScript.
+    buildCommand: npm ci --include=dev && npm run build -w server
+    startCommand: npm start -w server
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: LOG_LEVEL
+        value: info
+      - key: MAILER
+        value: resend
+      # How many proxies sit in front of the server. 0 trusts no X-Forwarded-For until the count is
+      # measured on the live service (docs/deploy.md); then set it here.
+      - key: TRUST_PROXY
+        value: '0'
+      # Render makes a random 256-bit value once, kept across deploys.
+      - key: JWT_SECRET
+        generateValue: true
+      - key: PASSCODE_SECRET
+        generateValue: true
+      - key: MONGODB_URI
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+      # The pages' origin, https://<static site>.onrender.com.
+      - key: CORS_ORIGIN
+        sync: false
+      # The test tools' binaries are not needed to build or run.
+      - key: CYPRESS_INSTALL_BINARY
+        value: '0'
+      - key: MONGOMS_DISABLE_POSTINSTALL
+        value: '1'
+
+  - type: web
+    name: parsec-bank
+    runtime: static
+    buildCommand: npm ci --include=dev && npm run build -w client
+    staticPublishPath: client/dist
+    autoDeployTrigger: commit
+    envVars:
+      # The API's origin, https://<web service>.onrender.com, built into the pages and their
+      # content security policy.
+      - key: VITE_API_URL
+        sync: false
+      - key: CYPRESS_INSTALL_BINARY
+        value: '0'
+      - key: MONGOMS_DISABLE_POSTINSTALL
+        value: '1'
+    # Deep links (/dashboard) serve the app; existing files are served as they are.
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    # The rest of the content security policy is in index.html, built from VITE_API_URL.
+    headers:
+      - path: /*
+        name: Content-Security-Policy
+        value: "frame-ancestors 'none'"
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: Referrer-Policy
+        value: no-referrer
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable

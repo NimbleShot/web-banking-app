@@ -75,10 +75,10 @@ Kinds: `dev` (devDependency) · `runtime` (dependency) · `npx` (pinned, never i
 ## At a glance
 
 ```
- Browser ──── React SPA (Vite, TS) ────────────────── hosted on Vercel
+ Browser ──── React SPA (Vite, TS) ────────────────── Render static site
     │  HTTPS: REST + JSON           │  WebSocket (Socket.IO)
     ▼                               ▼
- Express API (Node, TS) ── Socket.IO server ───────── hosted on Render (Docker)
+ Express API (Node, TS) ── Socket.IO server ───────── Render web service
     │            │             │            │
  MongoDB      Email/SMS      OpenAI via    Langfuse
  (Atlas M0)   (Resend /      LangGraph     (traces)
@@ -156,8 +156,8 @@ only a **hash** of it with an expiry, count wrong attempts, and limit re-sends.
 | Piece | Choice | Notes |
 |-------|--------|-------|
 | Docker | **Fixed** (phase 10) | Multi-stage Dockerfile for the API, plus `docker compose` with Mongo as a replica set. `.dockerignore` keeps `node_modules` and `.env` out of the image. Developed against Docker 29 |
-| Front-end host | **Vercel** (Hobby, free) | Static Vite build. Add a rewrite of all paths to `index.html`, or deep links 404 on refresh |
-| Back-end host | **Render** free web service | Sleeps after 15 min idle, ~1 min cold start, no outbound SMTP, files on disk are lost on restart (fine; data lives in Atlas). Deploys from GitHub/GitLab.com or a Dockerfile. Vercel can now hold WebSockets (beta), but a long-lived Express + Socket.IO server is a better fit for Render |
+| Front-end host | **Render** static site (free), [ADR-0017](decisions/0017-deploy-render-resend-page-csp.md) | Static Vite build from `render.yaml`, with a rewrite of all paths to `index.html` (Render serves existing files first), or deep links 404 on refresh. Vercel was the first plan; one Render Blueprint now describes both halves |
+| Back-end host | **Render** free web service, `render.yaml` ([deploy steps](deploy.md)) | Sleeps after 15 min idle, ~1 min cold start, no outbound SMTP, files on disk are lost on restart (fine; data lives in Atlas). Deploys from GitHub/GitLab.com or a Dockerfile. Vercel can now hold WebSockets (beta), but a long-lived Express + Socket.IO server is a better fit for Render |
 | Railway | Listed in the keywords | No longer really free: a one-time $5 trial, then $1/month credit. Fine to *know*, not the default |
 | CI | GitHub Actions (or GitLab CI) | On every push: lint, type-check, backend tests. Cypress in CI later |
 
@@ -214,10 +214,23 @@ only a **hash** of it with an expiry, count wrong attempts, and limit re-sends.
     `running` at time 0, and the same spec passed in Chrome → `test:e2e` runs in Chrome
     (`--browser chrome`), which must be installed. Seen 2026-11-24 (Cypress 16.3, Chrome 154).
 
+20. Render's free web service must bind `0.0.0.0`; a server bound to 127.0.0.1 has no port Render
+    can find, and the deploy fails. Its build runs `npm ci` with `NODE_ENV` from the service, so
+    `NODE_ENV=production` skips devDependencies (TypeScript): build with `npm ci --include=dev`.
+    `npm ci` also runs Cypress's and mongodb-memory-server's binary downloads (about 1 GB):
+    `CYPRESS_INSTALL_BINARY=0` and `MONGOMS_DISABLE_POSTINSTALL=1` skip them. Checked 2026-11-25.
+21. Browsers offer `crypto.randomUUID` only in a secure context (HTTPS or localhost): a page opened
+    by a local network address over plain HTTP has none. `crypto.getRandomValues` works anywhere.
+22. Vite inlines assets under 4 KB as `data:` URIs, small font subsets included, which a CSP of
+    `font-src 'self'` blocks → `build.assetsInlineLimit: 0`. Cypress keeps a page's `<meta>` CSP
+    working (38/38 specs passed with one). Checked 2026-11-25 (Vite 8).
+
 ## Sources for these claims
 
 Render SMTP block: <https://render.com/changelog/free-web-services-will-no-longer-allow-outbound-traffic-to-smtp-ports> ·
-Render free tier: <https://render.com/docs/free> · Atlas free limits:
+Render free tier: <https://render.com/docs/free> · Render Blueprints: <https://render.com/docs/blueprint-spec> ·
+Render port binding: <https://render.com/docs/web-services> · Resend send email:
+<https://resend.com/docs/api-reference/emails/send-email> · Atlas free limits:
 <https://www.mongodb.com/docs/atlas/reference/free-shared-limitations/> · Mongoose transactions:
 <https://mongoosejs.com/docs/transactions.html> · Jitsi on meet.jit.si vs production:
 <https://jitsi.org/api/> · JaaS 25 MAU: <https://developer.8x8.com/jaas/docs/faq/> · Twilio trial:

@@ -1,0 +1,364 @@
+{
+  "info": {
+    "name": "Bank live check",
+    "description": "Signs in as two accounts made on the deployed app, sends 1 agora from A to B, repeats that request with the same key, and sends it back. Run with the environment of docs/deploy.md: baseUrl, emailA, passwordA, emailB, passwordB.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1 A signs in",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json(); const v = (name) => pm.variables.get(name);",
+              "pm.test('[DP-5] A signs in on the live API', () => pm.expect(res.code).to.equal(200));",
+              "pm.collectionVariables.set('tokenA', body().accessToken);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/auth/login",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "auth", "login"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{emailA}}\",\n  \"password\": \"{{passwordA}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "2 B signs in",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json(); const v = (name) => pm.variables.get(name);",
+              "pm.test('[DP-5] B signs in on the live API', () => pm.expect(res.code).to.equal(200));",
+              "pm.collectionVariables.set('tokenB', body().accessToken);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/auth/login",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "auth", "login"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{emailB}}\",\n  \"password\": \"{{passwordB}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "3 A's balance",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json(); const v = (name) => pm.variables.get(name);",
+              "pm.test('[DP-5] A can afford 1 agora', () => { pm.expect(res.code).to.equal(200); pm.expect(body().balance).to.be.at.least(1); });",
+              "pm.collectionVariables.set('balanceA0', body().balance);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenA}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/me",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "me"]
+        }
+      }
+    },
+    {
+      "name": "4 B's balance",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json(); const v = (name) => pm.variables.get(name);",
+              "pm.test('[DP-5] B reads its account', () => pm.expect(res.code).to.equal(200));",
+              "pm.collectionVariables.set('balanceB0', body().balance);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenB}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/me",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "me"]
+        }
+      }
+    },
+    {
+      "name": "5 A sends B 1 agora",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": ["pm.collectionVariables.set('keyAB', pm.variables.replaceIn('{{$guid}}'));"]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json(); const v = (name) => pm.variables.get(name);",
+              "pm.test('[DP-5] the transfer answers 201 with the new balance', () => { pm.expect(res.code).to.equal(201); pm.expect(body().balance).to.equal(Number(v('balanceA0')) - 1); });",
+              "if (res.code === 201) pm.collectionVariables.set('txId', body().transaction.id);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenA}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{keyAB}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/transfers",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "transfers"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"toEmail\": \"{{emailB}}\",\n  \"amount\": 1\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "6 The same request again moves nothing",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json(); const v = (name) => pm.variables.get(name);",
+              "pm.test('[TX-9] a repeat with the same key answers with the first transfer and moves nothing', () => { pm.expect(res.code).to.equal(201); pm.expect(body().transaction.id).to.equal(v('txId')); pm.expect(body().balance).to.equal(Number(v('balanceA0')) - 1); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenA}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{keyAB}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/transfers",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "transfers"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"toEmail\": \"{{emailB}}\",\n  \"amount\": 1\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "7 B sees the record",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json(); const v = (name) => pm.variables.get(name);",
+              "pm.test('[DP-5] B sees the record, +1 from A', () => { pm.expect(res.code).to.equal(200); const item = body().items.find((i) => i.id === v('txId')); pm.expect(item).to.include({ counterpartyEmail: v('emailA').toLowerCase(), amount: 1 }); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenB}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/transactions?limit=5",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "transactions"],
+          "query": [
+            {
+              "key": "limit",
+              "value": "5"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "8 B sends the agora back",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": ["pm.collectionVariables.set('keyBA', pm.variables.replaceIn('{{$guid}}'));"]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json(); const v = (name) => pm.variables.get(name);",
+              "pm.test('[DP-5] the transfer back answers 201', () => { pm.expect(res.code).to.equal(201); pm.expect(body().balance).to.equal(Number(v('balanceB0'))); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenB}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{keyBA}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/transfers",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "transfers"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"toEmail\": \"{{emailA}}\",\n  \"amount\": 1\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "9 A's balance is back",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response; const body = () => res.json(); const v = (name) => pm.variables.get(name);",
+              "pm.test('[DP-5] A has its first balance again', () => { pm.expect(res.code).to.equal(200); pm.expect(body().balance).to.equal(Number(v('balanceA0'))); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenA}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/me",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "me"]
+        }
+      }
+    }
+  ]
+}

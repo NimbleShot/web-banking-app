@@ -12,8 +12,9 @@ Render · Jest + Supertest · Cypress.
 
 ## Status
 
-Design stage: the requirements, the design decisions and the API contract
-([`api/openapi.yaml`](api/openapi.yaml), OpenAPI 3.1) are written; the server comes next.
+The API ([`api/openapi.yaml`](api/openapi.yaml), OpenAPI 3.1), the server on MongoDB and the web
+front end are built and tested; [`render.yaml`](render.yaml) deploys them to Render
+([`docs/deploy.md`](docs/deploy.md)).
 
 ## Development
 
@@ -23,7 +24,7 @@ Needs Node 24 (`.nvmrc`).
 nvm use            # or any Node >=24.9 <25
 npm ci
 npm run check          # format, contract lint, type drift, lint, typecheck, client build, tests; CI too
-npm run dev -w server  # the API on http://localhost:3000
+npm run dev -w server  # the API on http://127.0.0.1:3000
 npm run dev -w client  # the front end on http://localhost:5173, calling that API
 npm run test:e2e       # browser tests against a fresh server for each spec file
 npm run format         # fix formatting
@@ -37,4 +38,5 @@ npm run check:postman  # import the contract as a Postman collection: one reques
 |------|------------|
 | [`docs/requirements.md`](docs/requirements.md) | What the app does: requirement IDs and acceptance checks |
 | [`docs/decisions/`](docs/decisions/) | Architecture decision records: OTP, sign-up, money, sessions, toolchain, API conventions, password reset |
+| [`docs/deploy.md`](docs/deploy.md) | The first deploy to Render, Atlas and Resend, and the checks after it |
 | [`docs/tech-stack.md`](docs/tech-stack.md) | Tools per layer, versions, known pitfalls, and the ledger of installed dependencies |
