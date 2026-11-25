@@ -29,7 +29,7 @@ value and lists every problem. [`.env.example`](.env.example) lists them all.
 | `LOG_LEVEL` | `info` | pino level, or `silent` |
 | `CORS_ORIGIN` | `http://localhost:5173`; required in production | The front end's origin, the only one a browser may call the API from: `http(s)://host[:port]`, no path or trailing slash |
 | `TRUST_PROXY` | `0` (no proxy) | How many proxies sit in front of the server, a whole number; the rate limits tell clients apart by `X-Forwarded-For` only when it is 1 or more |
-| `MAILER` | `outbox` | How passcodes are sent: `outbox` keeps them in memory, and the server refuses to start with it when `NODE_ENV` is `production`; `resend` emails them through Resend's HTTP API, after the answer |
+| `MAILER` | `outbox` | How passcodes are sent: `outbox` keeps them in memory, and the server refuses to start with it when `NODE_ENV` is `production`; `resend` emails them through Resend's HTTP API, after the answer, trying a busy or failing API twice more |
 | `RESEND_API_KEY` | none; required with `MAILER=resend` | Resend's API key. Never logged |
 | `MAIL_FROM` | none; required with `MAILER=resend` | The sender, on a domain verified in Resend: `Bank <codes@mail.example.com>` |
 | `RESEND_API_URL` | `https://api.resend.com` | Resend's API origin; production takes https only, except a loopback address |

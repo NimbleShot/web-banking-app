@@ -21,6 +21,23 @@ function fakeFetch(answer: () => Response | Promise<Response>) {
 }
 
 /** MAILER=resend with the server's secrets; each test adds the Resend key when it wants one. */
+/** A fake wait that keeps how long each one was. */
+function fakeWait() {
+  const waits: number[] = [];
+  const wait = async (ms: number) => void waits.push(ms);
+  return { wait, waits };
+}
+
+/** A fake fetch that gives `answers` in turn: a Response, or an Error to throw. */
+function scriptedFetch(answers: (Response | Error)[]) {
+  return fakeFetch(() => {
+    const next = answers.shift();
+    if (next === undefined) throw new Error('more requests than the test expected');
+    if (next instanceof Error) throw next;
+    return next;
+  });
+}
+
 const env = (overrides: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv => ({
   JWT_SECRET: TEST_SECRETS.JWT_SECRET,
   PASSCODE_SECRET: TEST_SECRETS.PASSCODE_SECRET,
@@ -133,6 +150,7 @@ describe('DP-1 in production, passcodes are emailed through an HTTP email API', 
           cause: { code: 'ECONNREFUSED', message: `connect ECONNREFUSED ${echoed}` },
         });
       }).post,
+      fakeWait().wait,
     );
 
     const errors = await Promise.all(
@@ -158,5 +176,52 @@ describe('DP-1 in production, passcodes are emailed through an HTTP email API', 
     logger.info({ config }, 'the configuration');
     expect(lines.join('')).not.toContain(KEY);
     expect(JSON.parse(lines[0] ?? '{}').config.resend.apiKey).toBe('[Redacted]');
+  });
+
+  it('[DP-1] a busy or failing email API is tried twice more, waiting 1 s and 2 s or as Retry-After asks (at most 10 s); a refusal for any other reason is not retried', async () => {
+    const message = { to: 'dana@example.com', purpose: 'signup' as const, passcode: '042137' };
+    const unreachable = new TypeError('fetch failed', { cause: { code: 'ECONNRESET' } });
+    const busy = (seconds: string) =>
+      new Response(null, { status: 429, headers: { 'retry-after': seconds } });
+    const cases = [
+      // Busy, then down, then sent.
+      {
+        answers: [busy('3'), new Response(null, { status: 503 }), Response.json({})],
+        waits: [3000, 2000],
+        error: undefined,
+      },
+      // Unreachable, then sent; an API asking for an hour waits 10 s.
+      { answers: [unreachable, Response.json({})], waits: [1000], error: undefined },
+      { answers: [busy('3600'), Response.json({})], waits: [10_000], error: undefined },
+      // Three failures: the last one is the error.
+      {
+        answers: [500, 502, 500].map((status) => new Response(null, { status })),
+        waits: [1000, 2000],
+        error: 'the email API answered 500',
+      },
+      // A refusal that would happen again.
+      {
+        answers: [new Response(null, { status: 422 })],
+        waits: [],
+        error: 'the email API answered 422',
+      },
+    ];
+
+    for (const { answers, waits, error } of cases) {
+      const tries = answers.length;
+      const { post, calls } = scriptedFetch(answers);
+      const clock = fakeWait();
+      const sent = new ResendMailer(SETTINGS, post, clock.wait).sendPasscode(message);
+
+      if (error === undefined) await expect(sent).resolves.toBeUndefined();
+      else
+        await expect(sent).rejects.toThrow(
+          new MailerError(undefined, error.replace('the email API ', '')),
+        );
+      expect(calls).toHaveLength(tries);
+      expect(clock.waits).toEqual(waits);
+      // Every try is the same email.
+      expect(new Set(calls.map((call) => call.init.body)).size).toBe(1);
+    }
   });
 });

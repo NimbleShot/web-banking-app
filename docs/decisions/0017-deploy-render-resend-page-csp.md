@@ -19,14 +19,16 @@ production · the page's CSP as a host header or a tag built into the page.
 service started from a compiled build, the pages as a static site with a deep-link rewrite. The
 pages call the API at its own address (`VITE_API_URL`, allowed by `CORS_ORIGIN`), with no proxy
 in between. `MAILER=resend` posts each passcode to Resend from a verified subdomain, after the
-answer; a failure is logged with its status only. Outside production the server listens on
+answer. A busy (429) or failing (5xx, unreachable) API is tried twice more, 1 s and 2 s apart or
+as `Retry-After` asks (at most 10 s); a failure after that is logged with its status only. Outside production the server listens on
 127.0.0.1, so a misconfigured deploy finds no port and fails. The page's CSP is a `<meta>` tag
 built from the `VITE_API_URL` the bundle gets: everything from its own origin, plus the API for
 `connect-src`; a deploy build without the address fails. Assets are never inlined, and
 `frame-ancestors` comes as a header. This replaces only 0004's "a strict
 CSP from helmet" mitigation. `TRUST_PROXY` stays 0 until it is measured on the live service.
 
-**Consequences.** A failed email is silent: the user asks for a new code after the cooldown.
+**Consequences.** An email that still fails is silent: the user asks for a new code after the
+cooldown. A retry whose first try got through sends the same code twice.
 Changing the API's address means rebuilding the pages. A free web service sleeps after 15 idle
 minutes. Atlas admits Render's shared outbound ranges, which change. A container (phase 10) must
 set `NODE_ENV=production`.

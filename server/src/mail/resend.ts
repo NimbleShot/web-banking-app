@@ -1,5 +1,7 @@
-// Emails passcodes through Resend's HTTP API (DP-1, docs/decisions/0017): one POST per email.
-// HTTP, not SMTP, because the host blocks outbound SMTP ports.
+// Emails passcodes through Resend's HTTP API (DP-1, docs/decisions/0017): one POST per email,
+// tried twice more when the API is busy or failing. HTTP, not SMTP, because the host blocks
+// outbound SMTP ports.
+import { setTimeout as sleep } from 'node:timers/promises';
 import { PASSCODE_RULES, type PasscodePurpose } from '../services/passcodes';
 import type { Mailer, PasscodeMessage } from './mailer';
 
@@ -27,6 +29,25 @@ export class MailerError extends Error {
 
 /** How long a send may take; it runs after the answer (DP-2), so it never holds a request. */
 const SEND_TIMEOUT_MS = 10_000;
+
+/**
+ * A send the API refused as busy (429) or failed (5xx, no answer) is tried again, up to twice:
+ * 1 s and then 2 s later, or after the API's Retry-After, at most 10 s. A repeat whose first try
+ * did get through sends the same code twice, which is harmless. Any other refusal (a 4xx: a bad
+ * key or sender) would fail the same way again, so it is not retried.
+ */
+const RETRIES = 2;
+const MAX_RETRY_WAIT_MS = 10_000;
+
+const retriable = (error: MailerError) =>
+  error.status === undefined || error.status === 429 || error.status >= 500;
+
+/** The wait before retry `n` (1-based): Retry-After in seconds when the API gives one. */
+function retryWait(n: number, retryAfter: string | null): number {
+  const seconds = retryAfter === null ? Number.NaN : Number(retryAfter);
+  const asked = Number.isFinite(seconds) && seconds >= 0 ? seconds * 1000 : n * 1000;
+  return Math.min(asked, MAX_RETRY_WAIT_MS);
+}
 
 const MINUTES = PASSCODE_RULES.validForMs / 60_000;
 
@@ -64,10 +85,23 @@ export class ResendMailer implements Mailer {
     private readonly settings: ResendSettings,
     /** The HTTP client; tests pass a fake, so they never reach the network. */
     private readonly post: typeof fetch = fetch,
+    /** Waits between tries; tests pass a fake, so they never wait on the clock. */
+    private readonly wait: (ms: number) => Promise<unknown> = sleep,
   ) {}
 
   async sendPasscode(message: PasscodeMessage): Promise<void> {
     const { subject, text } = passcodeEmail(message);
+    const body = JSON.stringify({ from: this.settings.from, to: message.to, subject, text });
+    for (let retry = 1; ; retry += 1) {
+      const { error, retryAfter } = await this.tryOnce(body);
+      if (!error) return;
+      if (retry > RETRIES || !retriable(error)) throw error;
+      await this.wait(retryWait(retry, retryAfter));
+    }
+  }
+
+  /** One POST: no error, or the MailerError and the answer's Retry-After. */
+  private async tryOnce(body: string): Promise<{ error?: MailerError; retryAfter: string | null }> {
     let response: Response;
     try {
       response = await this.post(`${this.settings.apiUrl}/emails`, {
@@ -76,15 +110,20 @@ export class ResendMailer implements Mailer {
           Authorization: `Bearer ${this.settings.apiKey}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ from: this.settings.from, to: message.to, subject, text }),
+        body,
         signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
       });
     } catch (error) {
-      throw new MailerError(undefined, `could not be reached (${failureKind(error)})`);
+      const failure = new MailerError(undefined, `could not be reached (${failureKind(error)})`);
+      return { error: failure, retryAfter: null };
     }
     // The answer's body is never read: it could echo the request. Dropping it frees the connection,
     // and a body that fails mid-stream changes nothing about a status that has already arrived.
     void response.body?.cancel().catch(() => undefined);
-    if (!response.ok) throw new MailerError(response.status, `answered ${response.status}`);
+    if (response.ok) return { retryAfter: null };
+    return {
+      error: new MailerError(response.status, `answered ${response.status}`),
+      retryAfter: response.headers.get('retry-after'),
+    };
   }
 }
