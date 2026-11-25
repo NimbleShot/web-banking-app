@@ -3,7 +3,7 @@
 The API and the pages run on Render, the data on MongoDB Atlas, and passcode emails go through
 Resend's HTTP API ([ADR-0017](decisions/0017-deploy-render-resend-page-csp.md)). [`render.yaml`](../render.yaml)
 describes both services. Everything below is done once; after that, every commit to the
-Blueprint's branch redeploys.
+Blueprint's branch redeploys. This app's Blueprint follows `main`, so a merged pull request goes live.
 
 ## Accounts
 
