@@ -21,6 +21,8 @@ const violations: ResponseViolation[] = [];
 export const TEST_SECRETS = {
   JWT_SECRET: 'test-only-token-secret-0123456789abcdef',
   PASSCODE_SECRET: 'test-only-passcode-secret-0123456789abcdef',
+  /** Read only with MAILER=resend. */
+  RESEND_API_KEY: 're_test_only_key_0123456789',
 } as const;
 
 export function testConfig(overrides: Partial<AppConfig> = {}): AppConfig {

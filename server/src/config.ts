@@ -6,12 +6,15 @@ const LOG_LEVELS = ['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'
 
 export type NodeEnv = (typeof NODE_ENVS)[number];
 export type LogLevel = (typeof LOG_LEVELS)[number];
-/** How passcodes are sent. Only the in-memory outbox exists until a real email API is added. */
-const MAILERS = ['outbox'] as const;
+/** How passcodes are sent: kept in memory (tests and development), or emailed through Resend. */
+const MAILERS = ['outbox', 'resend'] as const;
 export type MailerKind = (typeof MAILERS)[number];
 
 /** The front end's origin outside production when CORS_ORIGIN is unset: the Vite dev server. */
 export const DEV_CORS_ORIGIN = 'http://localhost:5173';
+
+/** Resend's API when RESEND_API_URL is unset (DP-1). */
+export const RESEND_API_URL = 'https://api.resend.com';
 
 /** The shortest secret accepted, in UTF-8 bytes (docs/decisions/0010). */
 export const MIN_SECRET_BYTES = 32;
@@ -27,6 +30,8 @@ export type AppConfig = {
   corsOrigin: string;
   /** How passcodes are sent; `outbox` keeps them in memory and is refused in production (SEC-5.d). */
   mailer: MailerKind;
+  /** Resend's settings, set exactly when `mailer` is `resend` (DP-1). The key is redacted in logs. */
+  resend?: { apiKey: string; from: string; apiUrl: string };
   /** Signs and verifies access tokens (HS256); at least 32 bytes. */
   jwtSecret: string;
   /** Keys the passcode HMACs; at least 32 bytes. */
@@ -67,6 +72,31 @@ function corsOriginProblem(value: string): string | undefined {
   return `CORS_ORIGIN must be exactly an origin such as https://bank.example.com (got "${value}"; did you mean "${url.origin}"?)`;
 }
 
+/** A sender address, `codes@mail.example.com` or `Bank <codes@mail.example.com>`. */
+const MAIL_FROM = /^(?:[^<>@]*<[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+>|[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+)$/;
+
+/**
+ * RESEND_API_URL is exactly an http(s) origin: no path, query, fragment or credentials, which would
+ * break every send. Production takes https only, except a loopback address (a local rehearsal
+ * against a fake email API), so the key never crosses a network in the clear.
+ */
+function resendApiUrlProblem(value: string, nodeEnv: string): string | undefined {
+  let url: URL | undefined;
+  try {
+    url = new URL(value);
+  } catch {
+    url = undefined;
+  }
+  if (!url || (url.protocol !== 'http:' && url.protocol !== 'https:') || url.origin !== value) {
+    return `RESEND_API_URL must be an http(s) origin with no path, such as ${RESEND_API_URL} (got "${value}")`;
+  }
+  const loopback = ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname);
+  if (nodeEnv === 'production' && url.protocol !== 'https:' && !loopback) {
+    return 'RESEND_API_URL must use https in production';
+  }
+  return undefined;
+}
+
 /** The problem for a secret that is unset or shorter than MIN_SECRET_BYTES. */
 function secretProblem(name: string): string {
   return `${name} must be set to a secret of at least ${MIN_SECRET_BYTES} bytes; generate one with: ${GENERATE_SECRET}`;
@@ -74,6 +104,15 @@ function secretProblem(name: string): string {
 
 function oneOf<T extends string>(value: string, allowed: readonly T[]): value is T {
   return (allowed as readonly string[]).includes(value);
+}
+
+/**
+ * Where the server listens (DP-3): every interface in production, this machine only otherwise.
+ * A host deployed without NODE_ENV=production then can't be reached, so its deploy fails instead
+ * of serving the test outbox's passcodes to anyone.
+ */
+export function listenHost(nodeEnv: NodeEnv): string {
+  return nodeEnv === 'production' ? '0.0.0.0' : '127.0.0.1';
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
@@ -120,6 +159,27 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
   const mailer = read('MAILER') ?? 'outbox';
   if (!oneOf(mailer, MAILERS)) problems.push(`MAILER must be one of ${MAILERS.join(', ')}`);
 
+  // Resend's settings are read only for MAILER=resend; the messages never show the key.
+  let resend: AppConfig['resend'];
+  if (mailer === 'resend') {
+    const apiKey = read('RESEND_API_KEY');
+    if (apiKey === undefined) {
+      problems.push('RESEND_API_KEY must be set when MAILER=resend (an API key from resend.com)');
+    }
+    const from = read('MAIL_FROM');
+    if (from === undefined || !MAIL_FROM.test(from)) {
+      problems.push(
+        'MAIL_FROM must be set when MAILER=resend to a sender on a verified domain, such as ' +
+          `"Bank <codes@mail.example.com>"${from === undefined ? '' : ` (got "${from}")`}`,
+      );
+    }
+    const apiUrl = (read('RESEND_API_URL') ?? RESEND_API_URL).replace(/\/$/, '');
+    const urlProblem = resendApiUrlProblem(apiUrl, nodeEnv);
+    if (urlProblem) problems.push(urlProblem);
+    if (apiKey !== undefined && from !== undefined && !urlProblem)
+      resend = { apiKey, from, apiUrl };
+  }
+
   const rawTrustProxy = read('TRUST_PROXY');
   let trustProxy = 0;
   if (rawTrustProxy !== undefined) {
@@ -147,6 +207,7 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     logLevel: logLevel as LogLevel,
     corsOrigin,
     mailer: mailer as MailerKind,
+    ...(resend && { resend }),
     jwtSecret,
     passcodeSecret,
     trustProxy,

@@ -1,7 +1,7 @@
 // Entry point: read the configuration, open the storage, build the app, listen.
 import { createApp } from './app';
 import { systemClock } from './clock';
-import { ConfigError, loadConfig } from './config';
+import { ConfigError, listenHost, loadConfig } from './config';
 import { createLogger } from './logger';
 import { createMailer } from './mail/create-mailer';
 import { StorageError } from './repositories/mongo/models';
@@ -28,7 +28,7 @@ async function main(): Promise<void> {
     throw error;
   }
   // Express 5 hands a failed bind (port taken, no permission) to this callback.
-  const server = app.listen(config.port, (error?: Error) => {
+  const server = app.listen(config.port, listenHost(config.nodeEnv), (error?: Error) => {
     if (error) {
       logger.fatal({ err: error, port: config.port }, 'server could not listen');
       process.exitCode = 1;
@@ -36,9 +36,13 @@ async function main(): Promise<void> {
       void storage.close();
       return;
     }
-    const address = server.address();
-    const port = typeof address === 'object' && address ? address.port : config.port;
-    logger.info({ port, nodeEnv: config.nodeEnv, storage: storage.kind }, 'server listening');
+    const bound = server.address();
+    const { address, port } =
+      typeof bound === 'object' && bound ? bound : { address: undefined, port: config.port };
+    logger.info(
+      { address, port, nodeEnv: config.nodeEnv, storage: storage.kind },
+      'server listening',
+    );
   });
 }
 

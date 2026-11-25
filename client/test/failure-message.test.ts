@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@jest/globals';
-import { failureMessage, type Failure } from '../src/api/client';
+import { failureMessage, type Failure } from '../src/api/outcome';
 
 const limited = (retryAfter: number | null): Failure => ({
   kind: 'problem',

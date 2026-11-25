@@ -12,6 +12,7 @@ import { createPasscodeService } from './services/passcodes';
 import { createPasswordResetService } from './services/password-resets';
 import { argon2PasswordHasher } from './services/passwords';
 import { ACCESS_TOKEN_TTL_SECONDS, type TokenService } from './services/tokens';
+import { sendAfterAnswer } from './mail/after-answer';
 import { createSignUpService } from './services/sign-up';
 import { type SendOutcome, type Transaction, createTransferService } from './services/transfers';
 
@@ -50,9 +51,11 @@ export type RouteDeps = Pick<AppDeps, 'config' | 'clock' | 'logger' | 'mailer' |
  */
 export function createRoutes(deps: RouteDeps): Router {
   const passcodes = createPasscodeService({ secret: deps.config.passcodeSecret });
+  // Passcode emails go out after the answer (DP-2).
+  const mailer = sendAfterAnswer(deps.mailer, deps.logger);
   const signUps = createSignUpService({
     ...deps.repositories,
-    mailer: deps.mailer,
+    mailer,
     clock: deps.clock,
     passcodes,
     passwords: argon2PasswordHasher,
@@ -60,7 +63,7 @@ export function createRoutes(deps: RouteDeps): Router {
   const passwordResets = createPasswordResetService({
     users: deps.repositories.users,
     passwordResets: deps.repositories.passwordResets,
-    mailer: deps.mailer,
+    mailer,
     clock: deps.clock,
     passcodes,
     passwords: argon2PasswordHasher,

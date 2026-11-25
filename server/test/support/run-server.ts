@@ -32,3 +32,68 @@ export function runServer(variables: NodeJS.ProcessEnv): Promise<Run> {
     child.on('close', (status) => done({ status, stdout, stderr }));
   });
 }
+
+export type Started = {
+  /** The parsed "server listening" line. */
+  listening: { address?: string; port: number; nodeEnv: string; storage: string };
+  /** Everything the process printed so far. */
+  output(): string;
+  stop(): Promise<void>;
+};
+
+/**
+ * Runs src/server.ts like `runServer`, for a server that should keep running: resolves at its
+ * "server listening" line, or rejects with its output if it exits or takes 20 s first.
+ */
+export function startServer(variables: NodeJS.ProcessEnv): Promise<Started> {
+  return new Promise((done, fail) => {
+    const child = spawn(process.execPath, ['--import', 'tsx', 'src/server.ts'], {
+      cwd: resolve(__dirname, '../..'),
+      env: {
+        PATH: process.env.PATH,
+        HOME: process.env.HOME,
+        TMPDIR: process.env.TMPDIR,
+        PORT: '0',
+        LOG_LEVEL: 'info',
+        ...variables,
+      },
+    });
+    let out = '';
+    let timedOut = false;
+    const exited = new Promise<void>((settle) => child.on('close', () => settle()));
+    const stop = async () => {
+      child.kill();
+      await exited;
+    };
+    const timer = setTimeout(() => {
+      timedOut = true;
+      void stop();
+    }, 20000);
+    child.on('close', (status) => {
+      clearTimeout(timer);
+      const why = timedOut
+        ? 'no "server listening" line in 20 s'
+        : `the server exited with ${String(status)}`;
+      fail(new Error(`${why}:\n${out}`));
+    });
+    const onData = (chunk: string) => {
+      out += chunk;
+      // Only whole lines: a chunk can end inside one.
+      const line = out
+        .split('\n')
+        .slice(0, -1)
+        .find((text) => text.includes('"server listening"'));
+      if (!line) return;
+      let listening: Started['listening'];
+      try {
+        listening = JSON.parse(line) as Started['listening'];
+      } catch {
+        return;
+      }
+      clearTimeout(timer);
+      done({ listening, output: () => out, stop });
+    };
+    child.stdout.setEncoding('utf8').on('data', onData);
+    child.stderr.setEncoding('utf8').on('data', (chunk: string) => (out += chunk));
+  });
+}

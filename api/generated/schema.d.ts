@@ -427,7 +427,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Accepted. A pending sign-up exists for the email and a passcode was sent, unless the resend cooldown or cap held it back. */
+            /** @description Accepted. A pending sign-up exists for the email, and its passcode is emailed after this answer unless the resend cooldown or cap held it back. A failed email is not reported. */
             202: {
                 headers: {
                     [name: string]: unknown;
@@ -499,7 +499,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Accepted. If a sign-up is pending for this email, a new passcode was sent. */
+            /** @description Accepted. If a sign-up is pending for this email, a new passcode is emailed after this answer. A failed email is not reported. */
             202: {
                 headers: {
                     [name: string]: unknown;
@@ -560,7 +560,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Accepted. If a verified user has this email, a reset passcode was sent. */
+            /** @description Accepted. If a verified user has this email, a reset passcode is emailed after this answer. A failed email is not reported. */
             202: {
                 headers: {
                     [name: string]: unknown;

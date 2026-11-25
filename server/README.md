@@ -10,7 +10,7 @@ npm ci                        # from the repository root
 cp server/.env.example server/.env
 # set JWT_SECRET and PASSCODE_SECRET in server/.env, each to the output of:
 node -p "require('node:crypto').randomBytes(32).toString('base64')"
-npm run dev -w server         # http://localhost:3000, restarts on change
+npm run dev -w server         # http://127.0.0.1:3000, restarts on change
 ```
 
 Without `MONGODB_URI` the server keeps its data in memory, lost on every restart; the start-up
@@ -29,7 +29,10 @@ value and lists every problem. [`.env.example`](.env.example) lists them all.
 | `LOG_LEVEL` | `info` | pino level, or `silent` |
 | `CORS_ORIGIN` | `http://localhost:5173`; required in production | The front end's origin, the only one a browser may call the API from: `http(s)://host[:port]`, no path or trailing slash |
 | `TRUST_PROXY` | `0` (no proxy) | How many proxies sit in front of the server, a whole number; the rate limits tell clients apart by `X-Forwarded-For` only when it is 1 or more |
-| `MAILER` | `outbox` | How passcodes are sent. Only `outbox` exists: it keeps them in memory, and the server refuses to start with it when `NODE_ENV` is `production` (until a real mailer exists, there is no production start) |
+| `MAILER` | `outbox` | How passcodes are sent: `outbox` keeps them in memory, and the server refuses to start with it when `NODE_ENV` is `production`; `resend` emails them through Resend's HTTP API, after the answer, trying a busy or failing API twice more |
+| `RESEND_API_KEY` | none; required with `MAILER=resend` | Resend's API key. Never logged |
+| `MAIL_FROM` | none; required with `MAILER=resend` | The sender, on a domain verified in Resend: `Bank <codes@mail.example.com>` |
+| `RESEND_API_URL` | `https://api.resend.com` | Resend's API origin; production takes https only, except a loopback address |
 | `MONGODB_URI` | none: in-memory storage; required in production | The MongoDB connection string. It needs a replica set (Atlas is one) for the transfer's transaction. Never logged: it can carry a password |
 | `JWT_SECRET` | none; required | Signs the access tokens; at least 32 bytes |
 | `PASSCODE_SECRET` | none; required | Keys the hashes of the emailed passcodes; at least 32 bytes |

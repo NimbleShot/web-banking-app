@@ -107,7 +107,7 @@ describe('SEC-5.d the in-memory outbox is refused at start-up in production', ()
     expect(loadConfig(env(production)).mailer).toBe('outbox');
   });
 
-  it.each(['smtp', 'Outbox', 'resend', 'none'])(
+  it.each(['smtp', 'Outbox', 'none'])(
     '[SEC-5.d] MAILER=%s is not a mailer that exists: refused, naming MAILER',
     (value) => {
       const problems = configProblems(env({ MAILER: value }));
