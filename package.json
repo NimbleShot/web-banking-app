@@ -13,7 +13,7 @@
     "node": ">=24.9 <25"
   },
   "scripts": {
-    "check": "npm run format:check && npm run lint:api && npm run check:drift && npm run lint:diagrams && npm run lint && npm run typecheck && npm run build -w client && npm test && npm test -w client",
+    "check": "npm run format:check && npm run lint:api && npm run check:drift && npm run lint:diagrams && npm run lint && npm run typecheck && npm run build -w server && npm run build -w client && npm test && npm test -w client",
     "check:drift": "npm run gen:api && git diff --exit-code -- api/generated/",
     "check:postman": "node scripts/check-postman.mjs",
     "format": "prettier --write . --ignore-path .gitignore --ignore-path .prettierignore",

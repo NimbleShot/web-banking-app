@@ -23,7 +23,7 @@ Needs Node 24 (`.nvmrc`).
 ```sh
 nvm use            # or any Node >=24.9 <25
 npm ci
-npm run check          # format, contract lint, type drift, lint, typecheck, client build, tests; CI too
+npm run check          # format, contract lint, type drift, lint, typecheck, builds, tests; CI too
 npm run dev -w server  # the API on http://127.0.0.1:3000
 npm run dev -w client  # the front end on http://localhost:5173, calling that API
 npm run test:e2e       # browser tests against a fresh server for each spec file

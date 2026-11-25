@@ -21,10 +21,11 @@ export function sendAfterAnswer(mailer: Mailer, logger: Logger): Mailer {
         sending = Promise.reject(error);
       }
       sending.catch((error: unknown) => {
-        // A MailerError's message holds only the status; any other error's might hold anything.
+        // A MailerError holds only the status or the kind of failure, so it is logged as it is
+        // (type, message, status, stack); any other error's message might hold anything.
         const err =
           error instanceof MailerError
-            ? { type: error.name, message: error.message, status: error.status }
+            ? error
             : { type: error instanceof Error ? error.name : typeof error };
         logger.error({ purpose: message.purpose, err }, 'passcode email not sent');
       });

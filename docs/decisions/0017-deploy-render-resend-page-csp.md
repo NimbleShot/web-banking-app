@@ -21,8 +21,9 @@ pages call the API at its own address (`VITE_API_URL`, allowed by `CORS_ORIGIN`)
 in between. `MAILER=resend` posts each passcode to Resend from a verified subdomain, after the
 answer; a failure is logged with its status only. Outside production the server listens on
 127.0.0.1, so a misconfigured deploy finds no port and fails. The page's CSP is a `<meta>` tag
-built from `VITE_API_URL`: everything from its own origin, plus the API for `connect-src`. Assets
-are never inlined, and `frame-ancestors` comes as a header. This replaces only 0004's "a strict
+built from the `VITE_API_URL` the bundle gets: everything from its own origin, plus the API for
+`connect-src`; a deploy build without the address fails. Assets are never inlined, and
+`frame-ancestors` comes as a header. This replaces only 0004's "a strict
 CSP from helmet" mitigation. `TRUST_PROXY` stays 0 until it is measured on the live service.
 
 **Consequences.** A failed email is silent: the user asks for a new code after the cooldown.

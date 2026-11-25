@@ -59,24 +59,39 @@ export function startServer(variables: NodeJS.ProcessEnv): Promise<Started> {
       },
     });
     let out = '';
+    let timedOut = false;
     const exited = new Promise<void>((settle) => child.on('close', () => settle()));
     const stop = async () => {
       child.kill();
       await exited;
     };
     const timer = setTimeout(() => {
-      void stop().then(() => fail(new Error(`no "server listening" line in 20 s:\n${out}`)));
+      timedOut = true;
+      void stop();
     }, 20000);
     child.on('close', (status) => {
       clearTimeout(timer);
-      fail(new Error(`the server exited with ${String(status)}:\n${out}`));
+      const why = timedOut
+        ? 'no "server listening" line in 20 s'
+        : `the server exited with ${String(status)}`;
+      fail(new Error(`${why}:\n${out}`));
     });
     const onData = (chunk: string) => {
       out += chunk;
-      const line = out.split('\n').find((text) => text.includes('"server listening"'));
+      // Only whole lines: a chunk can end inside one.
+      const line = out
+        .split('\n')
+        .slice(0, -1)
+        .find((text) => text.includes('"server listening"'));
       if (!line) return;
+      let listening: Started['listening'];
+      try {
+        listening = JSON.parse(line) as Started['listening'];
+      } catch {
+        return;
+      }
       clearTimeout(timer);
-      done({ listening: JSON.parse(line) as Started['listening'], output: () => out, stop });
+      done({ listening, output: () => out, stop });
     };
     child.stdout.setEncoding('utf8').on('data', onData);
     child.stderr.setEncoding('utf8').on('data', (chunk: string) => (out += chunk));

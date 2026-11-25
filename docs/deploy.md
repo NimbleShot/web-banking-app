@@ -55,10 +55,12 @@ time until `clientIp` is this machine's public address. At the right count it is
 ## Checks
 
 - `server/postman/live.postman_collection.json` signs in as two accounts made on the live app
-  and sends 1 agora each way. Its environment, with their passwords, is never committed:
+  and sends 1 agora each way. Copy `live.postman_environment.example.json` beside it to
+  `live.postman_environment.json` (ignored by git: it holds their passwords) and fill it in:
 
   ```sh
-  npx newman@6.2.3 run server/postman/live.postman_collection.json -e <environment file>
+  npx newman@6.2.3 run server/postman/live.postman_collection.json \
+    -e server/postman/live.postman_environment.json
   ```
 
 - The pages' content security policy: open the live site with the browser's console showing

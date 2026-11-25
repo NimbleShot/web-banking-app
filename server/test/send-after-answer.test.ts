@@ -6,6 +6,7 @@ import request from 'supertest';
 import { createApp } from '../src/app';
 import { createLogger } from '../src/logger';
 import type { Mailer, PasscodeMessage } from '../src/mail/mailer';
+import { MailerError } from '../src/mail/resend';
 import { buildTestHarness } from './support/app';
 import { answerOf } from './support/auth';
 import { AFTER_COOLDOWN, aUser, RESEND, SIGN_UP, validSignUp } from './support/sign-up';
@@ -24,12 +25,16 @@ function stuckMailer() {
   return { mailer, started };
 }
 
-/** A mailer whose sends fail with an error that carries the passcode and the address. */
+/**
+ * A mailer whose sends fail: resets as the email API refusing them, sign-ups with an unexpected
+ * error that carries the passcode and the address.
+ */
 function failingMailer() {
   const started: PasscodeMessage[] = [];
   const mailer: Mailer = {
     sendPasscode: async (message) => {
       started.push(message);
+      if (message.purpose === 'reset') throw new MailerError(422, 'answered 422');
       throw new Error(`could not send ${message.passcode} to ${message.to}`);
     },
   };
@@ -76,10 +81,14 @@ describe('DP-2 passcode emails are sent after the answer', () => {
     const failures = lines
       .map((line) => JSON.parse(line) as { msg: string; purpose?: string; err?: unknown })
       .filter((line) => line.msg === 'passcode email not sent');
-    expect(failures.map(({ purpose, err }) => ({ purpose, err }))).toEqual([
-      { purpose: 'reset', err: { type: 'Error' } },
+    expect(failures).toMatchObject([
+      {
+        purpose: 'reset',
+        err: { type: 'MailerError', message: 'the email API answered 422', status: 422 },
+      },
       { purpose: 'signup', err: { type: 'Error' } },
     ]);
+    expect(failures[1]?.err).toEqual({ type: 'Error' });
     for (const message of started) {
       expect(lines.join('')).not.toContain(message.passcode);
       expect(lines.join('')).not.toContain(message.to);

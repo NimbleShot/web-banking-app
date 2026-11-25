@@ -26,3 +26,6 @@ client/cypress/downloads/
 # tools
 .vercel/
 .DS_Store
+
+# the live check's environment: real accounts' passwords (docs/deploy.md)
+server/postman/live.postman_environment.json

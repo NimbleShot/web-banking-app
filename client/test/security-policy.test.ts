@@ -25,14 +25,20 @@ describe("the page's content security policy", () => {
     expect(directives(contentSecurityPolicy(undefined))['connect-src']).toEqual(["'self'"]);
   });
 
-  it('[DP-4] VITE_API_URL must be an origin: blank means the page’s own origin; a path, a trailing slash or another scheme stops the build', () => {
+  it('[DP-4] VITE_API_URL must be an origin: unset means the page’s own origin, except in a deploy build; a path, a trailing slash, a space or another scheme stops the build', () => {
     expect(apiOrigin('https://api.example.com')).toBe('https://api.example.com');
     expect(apiOrigin('http://127.0.0.1:3000')).toBe('http://127.0.0.1:3000');
     expect(apiOrigin(undefined)).toBeUndefined();
-    expect(apiOrigin('  ')).toBeUndefined();
+    expect(apiOrigin('')).toBeUndefined();
+    for (const unset of [undefined, '']) {
+      expect(() => apiOrigin(unset, true)).toThrow('VITE_API_URL must be set for this build');
+    }
+    expect(apiOrigin('https://api.example.com', true)).toBe('https://api.example.com');
     for (const wrong of [
       'https://api.example.com/',
       'https://api.example.com/api',
+      'https://api.example.com ',
+      '  ',
       'ftp://api.example.com',
       'api.example.com',
     ]) {

@@ -4,24 +4,28 @@
 // <meta> policy can't hold (frame-ancestors) is a response header in render.yaml.
 
 /**
- * VITE_API_URL as an origin (`https://api.example.com`), or undefined when unset or blank. Anything
- * else stops the build: a wrong address would ship a page that can't reach the API.
+ * VITE_API_URL, checked: exactly an origin (`https://api.example.com`), or undefined when unset or
+ * empty. The page calls the value as written, so anything else stops the build, a stray space
+ * included: it would ship a page that can't reach the API. With `required` (a deploy build, where
+ * the pages' own host has no API behind it), unset or empty stops the build too.
  */
-export function apiOrigin(raw: string | undefined): string | undefined {
-  const value = raw?.trim();
-  if (!value) return undefined;
+export function apiOrigin(raw: string | undefined, required = false): string | undefined {
+  if (raw === undefined || raw === '') {
+    if (required) throw new Error("VITE_API_URL must be set for this build (the API's origin)");
+    return undefined;
+  }
   let url: URL | undefined;
   try {
-    url = new URL(value);
+    url = new URL(raw);
   } catch {
     url = undefined;
   }
-  if (!url || (url.protocol !== 'https:' && url.protocol !== 'http:') || url.origin !== value) {
+  if (!url || (url.protocol !== 'https:' && url.protocol !== 'http:') || url.origin !== raw) {
     throw new Error(
-      `VITE_API_URL must be an origin such as https://api.example.com, no path or trailing slash (got "${value}")`,
+      `VITE_API_URL must be an origin such as https://api.example.com, no path, trailing slash or space (got "${raw}")`,
     );
   }
-  return url.origin;
+  return raw;
 }
 
 /** The policy for a page whose API is at `api` (an origin), or at its own origin. */

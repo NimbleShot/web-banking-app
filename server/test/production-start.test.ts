@@ -43,7 +43,7 @@ describe('DP-1 production starts with the HTTP email API', () => {
       CORS_ORIGIN: 'https://bank.example.com',
       MONGODB_URI: replSet.getUri('production-start'),
       MAILER: 'resend',
-      RESEND_API_KEY: 're_test_only_key_0123456789',
+      RESEND_API_KEY: TEST_SECRETS.RESEND_API_KEY,
       MAIL_FROM: 'Bank <codes@mail.example.com>',
       RESEND_API_URL: `http://127.0.0.1:${apiPort}`,
     });
@@ -67,7 +67,7 @@ describe('DP-1 production starts with the HTTP email API', () => {
       expect(received[0]).toMatchObject({
         method: 'POST',
         url: '/emails',
-        authorization: 'Bearer re_test_only_key_0123456789',
+        authorization: `Bearer ${TEST_SECRETS.RESEND_API_KEY}`,
       });
       const email = JSON.parse(received[0]?.body ?? '{}') as Record<string, string>;
       expect(email).toMatchObject({ from: 'Bank <codes@mail.example.com>', to: validSignUp.email });

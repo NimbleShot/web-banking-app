@@ -6,7 +6,7 @@ import { createLogger } from '../src/logger';
 import { MailerError, ResendMailer } from '../src/mail/resend';
 import { TEST_SECRETS } from './support/app';
 
-const KEY = 're_test_only_key_0123456789';
+const KEY = TEST_SECRETS.RESEND_API_KEY;
 const FROM = 'Parsec Bank <codes@mail.example.com>';
 const SETTINGS = { apiKey: KEY, from: FROM, apiUrl: RESEND_API_URL };
 
@@ -20,8 +20,10 @@ function fakeFetch(answer: () => Response | Promise<Response>) {
   return { post, calls };
 }
 
+/** MAILER=resend with the server's secrets; each test adds the Resend key when it wants one. */
 const env = (overrides: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv => ({
-  ...TEST_SECRETS,
+  JWT_SECRET: TEST_SECRETS.JWT_SECRET,
+  PASSCODE_SECRET: TEST_SECRETS.PASSCODE_SECRET,
   MAILER: 'resend',
   ...overrides,
 });
@@ -76,10 +78,12 @@ describe('DP-1 in production, passcodes are emailed through an HTTP email API', 
       expect.stringContaining('RESEND_API_KEY'),
       expect.stringContaining('MAIL_FROM'),
     ]);
-    const secretKey = 're_this_value_must_never_be_shown';
+    const secretKey = KEY;
     const refused = [
       env({ RESEND_API_KEY: secretKey, MAIL_FROM: 'codes at example.com' }),
       env({ RESEND_API_KEY: secretKey, MAIL_FROM: FROM, RESEND_API_URL: 'https://a.example/v1' }),
+      env({ RESEND_API_KEY: secretKey, MAIL_FROM: FROM, RESEND_API_URL: 'https://a.example//' }),
+      env({ RESEND_API_KEY: secretKey, MAIL_FROM: FROM, RESEND_API_URL: 'https://a.example?x' }),
       env({
         RESEND_API_KEY: secretKey,
         MAIL_FROM: FROM,
@@ -89,10 +93,10 @@ describe('DP-1 in production, passcodes are emailed through an HTTP email API', 
       }),
     ];
     const problems = refused.map(problemsOf);
-    expect(problems.map((list) => list.length)).toEqual([1, 1, 1]);
+    expect(problems.map((list) => list.length)).toEqual([1, 1, 1, 1, 1]);
     expect(problems[0]?.[0]).toContain('MAIL_FROM');
-    expect(problems[1]?.[0]).toContain('RESEND_API_URL');
-    expect(problems[2]?.[0]).toBe('RESEND_API_URL must use https in production');
+    for (const list of problems.slice(1, 4)) expect(list[0]).toContain('RESEND_API_URL must be');
+    expect(problems[4]?.[0]).toBe('RESEND_API_URL must use https in production');
     for (const list of problems) expect(list.join('\n')).not.toContain(secretKey);
 
     const config = loadConfig(

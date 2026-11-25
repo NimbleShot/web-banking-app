@@ -53,6 +53,9 @@ services:
       # content security policy.
       - key: VITE_API_URL
         sync: false
+      # An unset VITE_API_URL stops the build, instead of shipping pages that call this host.
+      - key: REQUIRE_API_URL
+        value: '1'
       - key: CYPRESS_INSTALL_BINARY
         value: '0'
       - key: MONGOMS_DISABLE_POSTINSTALL

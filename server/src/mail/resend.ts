@@ -82,8 +82,9 @@ export class ResendMailer implements Mailer {
     } catch (error) {
       throw new MailerError(undefined, `could not be reached (${failureKind(error)})`);
     }
-    // The answer's body is never read into an error: it could echo the request.
-    await response.body?.cancel();
+    // The answer's body is never read: it could echo the request. Dropping it frees the connection,
+    // and a body that fails mid-stream changes nothing about a status that has already arrived.
+    void response.body?.cancel().catch(() => undefined);
     if (!response.ok) throw new MailerError(response.status, `answered ${response.status}`);
   }
 }

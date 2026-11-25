@@ -76,9 +76,9 @@ function corsOriginProblem(value: string): string | undefined {
 const MAIL_FROM = /^(?:[^<>@]*<[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+>|[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+)$/;
 
 /**
- * RESEND_API_URL is an http(s) address with no path. Production takes https only, except a
- * loopback address (a local rehearsal against a fake email API), so the key never crosses a
- * network in the clear.
+ * RESEND_API_URL is exactly an http(s) origin: no path, query, fragment or credentials, which would
+ * break every send. Production takes https only, except a loopback address (a local rehearsal
+ * against a fake email API), so the key never crosses a network in the clear.
  */
 function resendApiUrlProblem(value: string, nodeEnv: string): string | undefined {
   let url: URL | undefined;
@@ -87,8 +87,8 @@ function resendApiUrlProblem(value: string, nodeEnv: string): string | undefined
   } catch {
     url = undefined;
   }
-  if (!url || (url.protocol !== 'http:' && url.protocol !== 'https:') || url.pathname !== '/') {
-    return `RESEND_API_URL must be an http(s) address with no path, such as ${RESEND_API_URL} (got "${value}")`;
+  if (!url || (url.protocol !== 'http:' && url.protocol !== 'https:') || url.origin !== value) {
+    return `RESEND_API_URL must be an http(s) origin with no path, such as ${RESEND_API_URL} (got "${value}")`;
   }
   const loopback = ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname);
   if (nodeEnv === 'production' && url.protocol !== 'https:' && !loopback) {
