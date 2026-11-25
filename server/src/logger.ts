@@ -5,11 +5,9 @@ import type { LogLevel } from './config';
  * Where AppConfig's secrets sit in a log object: the config itself, `{ config }`, `{ deps }`. The
  * database address counts as one: it can carry a password.
  */
-const SECRET_PATHS = ['jwtSecret', 'passcodeSecret', 'mongodbUri'].flatMap((key) => [
-  key,
-  `config.${key}`,
-  `deps.config.${key}`,
-]);
+const SECRET_PATHS = ['jwtSecret', 'passcodeSecret', 'mongodbUri', 'resend.apiKey'].flatMap(
+  (key) => [key, `config.${key}`, `deps.config.${key}`],
+);
 
 /**
  * JSON logs, to stdout unless `destination` is given (tests capture the lines with one). Lines

@@ -1,5 +1,5 @@
 // The Express app, built from its dependencies; only server.ts opens a port (docs/decisions/0009).
-import express, { type Express, type Router } from 'express';
+import express, { type Express, type Request, type Router } from 'express';
 import helmet from 'helmet';
 import type { Logger } from 'pino';
 import { pinoHttp } from 'pino-http';
@@ -48,7 +48,11 @@ export function createApp(deps: AppDeps, routes?: Router): Express {
   app.disable('x-powered-by');
   // How many proxies sit in front: the client address (SEC-2) comes from X-Forwarded-For only then.
   app.set('trust proxy', deps.config.trustProxy);
-  app.use(pinoHttp({ logger: deps.logger }));
+  // Each request's line names the client address the rate limits count, so the proxy count can be
+  // checked on the host with a forged X-Forwarded-For (DP-5).
+  app.use(
+    pinoHttp({ logger: deps.logger, customProps: (req) => ({ clientIp: (req as Request).ip }) }),
+  );
   // Ahead of the contract, so error answers carry these headers too and the front end's
   // preflights (OPTIONS, which the contract doesn't list) are answered here (SEC-3).
   app.use(helmet());
