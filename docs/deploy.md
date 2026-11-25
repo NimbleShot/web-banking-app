@@ -52,6 +52,11 @@ The request's log line carries `"clientIp"`. Raise `TRUST_PROXY` in `render.yaml
 time until `clientIp` is this machine's public address. At the right count it is never
 `198.51.100.9`: one too many would let any client pick its own address.
 
+Measured on 2026-11-25 (free web service, Frankfurt): the request arrived from `127.0.0.1` with
+`X-Forwarded-For: 198.51.100.9, <client>, <Cloudflare edge>, <Render 10.x proxy>`, so
+`TRUST_PROXY` is 3. If Render changes its routing, measure again: a count that is now too high
+trusts the forged entry.
+
 ## Checks
 
 - `server/postman/live.postman_collection.json` signs in as two accounts made on the live app

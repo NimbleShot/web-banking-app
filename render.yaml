@@ -18,10 +18,10 @@ services:
         value: info
       - key: MAILER
         value: resend
-      # How many proxies sit in front of the server. 0 trusts no X-Forwarded-For until the count is
-      # measured on the live service (docs/deploy.md); then set it here.
+      # How many proxies sit in front of the server, measured on the live service (docs/deploy.md):
+      # Cloudflare's edge, Render's proxy and a local one. One more would trust a forged address.
       - key: TRUST_PROXY
-        value: '0'
+        value: '3'
       # Render makes a random 256-bit value once, kept across deploys.
       - key: JWT_SECRET
         generateValue: true
