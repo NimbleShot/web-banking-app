@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type SyntheticEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
 import type { components } from '../../../api/generated/schema';
 import { api, attempt, failureMessage, type Failure } from '../api/client';
+import { transferRequest, type UnsureTransfer } from '../api/transfer';
 import { authHeaders, readToken } from '../auth/session';
 import { useSessionEnd } from '../auth/useSessionEnd';
 import { FormAlert } from '../components/Alerts';
@@ -50,6 +51,8 @@ export function Transfer() {
   const onScreen = useOnScreen();
   // Set before the request starts, so a double click can never send the money twice.
   const sending = useRef(false);
+  /** The transfer whose answer was lost, until a clear answer: sending it again reuses its key. */
+  const unsure = useRef<UnsureTransfer | undefined>(undefined);
   const [account, setAccount] = useState<components['schemas']['Account'] | null>(null);
   const [to, setTo] = useState('');
   const [amount, setAmount] = useState('');
@@ -96,13 +99,17 @@ export function Transfer() {
     sending.current = true;
     setBusy(true);
     const sentAs = readToken();
+    // Built before `attempt`, which reports any throw as a lost answer: a fault here is a bug.
+    const request = transferRequest(toCheck.value, amountCheck.agorot, unsure.current);
     const result = await attempt(() =>
-      api.POST('/api/v1/transfers', {
-        headers: authHeaders(),
-        body: { toEmail: toCheck.value, amount: amountCheck.agorot },
-      }),
+      api.POST('/api/v1/transfers', { ...request, headers: authHeaders() }),
     );
 
+    // Only a lost answer keeps the key: it may have gone through. Any clear answer ends it.
+    unsure.current =
+      !result.ok && outcomeUnknown(result.failure)
+        ? { ...request.body, key: request.params.header['Idempotency-Key'] }
+        : undefined;
     if (result.ok) {
       // A late answer for someone who has since signed out, or in as someone else, isn't theirs.
       if (readToken() !== sentAs) return;

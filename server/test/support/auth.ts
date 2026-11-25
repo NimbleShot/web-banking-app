@@ -29,6 +29,9 @@ export const INVALID_CREDENTIALS = {
 
 export const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });
 
+/** createTransfer's required one-time key (TX-9), a new one unless `key` is given. */
+export const transferKey = (key: string = crypto.randomUUID()) => ({ 'Idempotency-Key': key });
+
 export const login = (h: Harness, email: string, password: string) =>
   request(h.app).post(LOGIN).send({ email, password });
 

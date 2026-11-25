@@ -1,4 +1,5 @@
 // Helpers that talk to the API directly, for a test's setup and to read the emailed passcode.
+import { newTransferKey } from '../../src/api/transfer';
 
 export const PASSWORD = 'correct-horse-9';
 export const PHONE = '+972501234567';
@@ -40,7 +41,7 @@ export function sendMoney(token: string, toEmail: string, amount: number) {
   return cy.request({
     method: 'POST',
     url: `${apiUrl()}/api/v1/transfers`,
-    headers: { Authorization: `Bearer ${token}` },
+    headers: { Authorization: `Bearer ${token}`, 'Idempotency-Key': newTransferKey() },
     body: { toEmail, amount },
   });
 }

@@ -23,6 +23,8 @@ function refusal(result: Exclude<SendOutcome['result'], 'sent'>): Problem {
     case 'unknown-sender':
       // The token's user was there at the token check and is gone now: the same 401.
       return unauthorizedProblem();
+    case 'key-reused':
+      return problem(422, 'IDEMPOTENCY_KEY_REUSED', 'This key belongs to another transfer');
     case 'self-transfer':
       return problem(422, 'SELF_TRANSFER', "You can't send money to yourself");
     case 'recipient-not-found':
@@ -176,12 +178,19 @@ export function createRoutes(deps: RouteDeps): Router {
     res.json(body);
   });
 
-  // TX-1..TX-8, DB-1: the sender is the token's user; the body names only the recipient and the
-  // amount (the contract refuses any other field). The store's one step checks self, recipient
-  // and funds in that order and moves the money. Not rate-limited (docs/decisions/0011).
+  // TX-1..TX-9, DB-1: the sender is the token's user; the body names only the recipient and the
+  // amount (the contract refuses any other field), and the contract requires the one-time key.
+  // The store's one step checks the key, self, recipient and funds in that order and moves the
+  // money. Not rate-limited (docs/decisions/0011).
   router.post('/api/v1/transfers', async (req, res) => {
     const { toEmail, amount } = req.body as Schemas['CreateTransferRequest'];
-    const outcome = await transfers.send(authenticatedUserId(res), toEmail, amount);
+    // The contract's validator has already refused a missing or malformed key. It accepts a UUID
+    // in any letter case and with a `urn:uuid:` prefix; the stores compare keys exactly, so every
+    // spelling of one UUID becomes the same key.
+    const idempotencyKey = (req.get('Idempotency-Key') as string)
+      .toLowerCase()
+      .replace(/^urn:uuid:/, '');
+    const outcome = await transfers.send(authenticatedUserId(res), toEmail, amount, idempotencyKey);
     if (outcome.result !== 'sent') {
       sendProblem(res, refusal(outcome.result));
       return;

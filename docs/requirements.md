@@ -65,8 +65,10 @@ Fixed by the worksheet: **React** front end, **Node.js** server, **MongoDB**. UI
 | TX-6 | The amount is positive and has at most 2 decimal places | Zero, negative, non-numeric or over-precise amounts are rejected; nothing changes |
 | TX-7 | A user can't send money to themselves | Rejected with an error; nothing changes |
 | TX-8 | A transfer is all-or-nothing, even under concurrent requests | Both balances and the record(s) change together or not at all; two simultaneous transfers can't overdraw |
+| TX-9 | A repeated transfer request moves money once (phase 6) | Every transfer carries a one-time key, or is refused. A repeat with the same key, even two sent at once, moves nothing and answers with the first transfer's record and the balance now; the same key with another recipient or amount is refused. The front end sends a new key per transfer |
 
-TX-6..8 are implied by the worksheet rather than written in it.
+TX-6..8 are implied by the worksheet rather than written in it. TX-9 was added in phase 6: a
+browser can resend a request whose answer was lost.
 
 ### Security (implied by the worksheet's keywords; phase 2 on)
 | ID | Requirement | Acceptance check |
@@ -109,6 +111,15 @@ TX-6..8 are implied by the worksheet rather than written in it.
 | UX-8 | A browser test covers the main journey | Against a real server: sign up, read the code, reach the dashboard, send money, sign out |
 | UX-9 | Animated screen changes | Between sign-in, sign-up, code and reset screens the card slides and reshapes while the hero fades. The new form takes keyboard focus. With reduced motion, screens switch at once |
 | UX-10 | Animated balance after a transfer | The signed amount appears above the balance and both count until it is used up. Every frame adds up to the true balance in agorot and ends on the server's value. With reduced motion, the new balance appears at once |
+
+### Deployment (phase 6)
+| ID | Requirement | Acceptance check |
+|----|-------------|------------------|
+| DP-1 | In production, passcodes are emailed through an HTTP email API | With the API's mailer the server starts in production and sends each passcode through the API. A missing key or sender address stops start-up, naming the variable. A failed send is logged with its status only |
+| DP-2 | Passcode emails are sent after the answer | Sign-up, resend and password-reset requests answer without waiting for the email. A registered and an unknown email get the same answer to a reset request, even when the send fails |
+| DP-3 | Outside production the server accepts connections from its own machine only | A development or test server listens on the loopback address; a production server listens on every interface |
+| DP-4 | The API and the front end deploy from the repository | A deploy file describes both services. The server runs from a compiled build. The built front end finds the API by its address, serves deep links, and sends a content security policy |
+| DP-5 | The deployed app works end to end | On the deployed app, accounts signed up with emailed codes log in and transfer money, and each side sees the record. The page's security policy blocks nothing the app needs. A forged `X-Forwarded-For` doesn't change the client the rate limits count |
 
 ### Reserved prefixes (minted when their phase is specified)
 `DM` Mongo (phase 3) · `DP` deployment (6) · `UX` Figma and theme (4, 5) · `RT` realtime (7) ·

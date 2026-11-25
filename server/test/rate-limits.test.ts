@@ -12,6 +12,7 @@ import {
   registerUser,
   TRANSACTIONS,
   TRANSFERS,
+  transferKey,
 } from './support/auth';
 import {
   FORGOT,
@@ -596,6 +597,7 @@ describe('SEC-2 what the limiters sit in front of', () => {
       request(h.app)
         .post(TRANSFERS)
         .set(bearer(token))
+        .set(transferKey())
         .send({ toEmail: 'omer@example.com', amount: 1 }),
     );
 

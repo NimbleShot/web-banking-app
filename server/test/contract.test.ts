@@ -6,7 +6,7 @@ import request from 'supertest';
 import { contractMiddleware } from '../src/http/contract';
 import { fieldOf } from '../src/http/errors';
 import { assertNoResponseViolations, buildTestApp, takeResponseViolations } from './support/app';
-import { signedInApp } from './support/auth';
+import { signedInApp, transferKey } from './support/auth';
 import { fieldsOf, validSignUp } from './support/sign-up';
 
 const PROBLEM_JSON = /^application\/problem\+json/;
@@ -52,6 +52,7 @@ describe('CT-4 the server enforces the contract at run time', () => {
         const res = await request(app)
           .post('/api/v1/transfers')
           .set(auth)
+          .set(transferKey())
           .send({ toEmail: 'noa@example.com', amount });
 
         expect(res.status).toBe(400);

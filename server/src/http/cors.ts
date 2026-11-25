@@ -19,7 +19,7 @@ export function corsForFrontEnd(origin: string): RequestHandler {
   const allow = cors({
     origin: [origin],
     methods: ['GET', 'POST'],
-    allowedHeaders: ['Authorization', 'Content-Type'],
+    allowedHeaders: ['Authorization', 'Content-Type', 'Idempotency-Key'],
     exposedHeaders: ['Retry-After'],
   });
   return (req, res, next) => {

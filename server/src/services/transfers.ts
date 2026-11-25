@@ -13,11 +13,27 @@ export type Transaction = {
 
 export type SendOutcome =
   | { result: 'sent'; transaction: Transaction; balance: number }
-  | { result: 'unknown-sender' | 'self-transfer' | 'recipient-not-found' | 'insufficient-funds' };
+  | {
+      result:
+        | 'unknown-sender'
+        | 'key-reused'
+        | 'self-transfer'
+        | 'recipient-not-found'
+        | 'insufficient-funds';
+    };
 
 export type TransferService = {
-  /** Moves `amount` agorot from the user to the verified user with `toEmail`, or says why not. */
-  send(userId: string, toEmail: string, amount: number): Promise<SendOutcome>;
+  /**
+   * Moves `amount` agorot from the user to the verified user with `toEmail`, or says why not. A
+   * repeat of `idempotencyKey` answers with its first transfer and moves nothing (TX-9). The
+   * contract requires the key on every request; without one a send is never matched as a repeat.
+   */
+  send(
+    userId: string,
+    toEmail: string,
+    amount: number,
+    idempotencyKey?: string,
+  ): Promise<SendOutcome>;
   /** The user's transactions, newest first, at most `limit`; undefined when the user is gone. */
   list(userId: string, limit: number): Promise<Transaction[] | undefined>;
 };
@@ -38,13 +54,14 @@ export function createTransferService(deps: {
   clock: Clock;
 }): TransferService {
   return {
-    async send(userId, toEmail, amount) {
+    async send(userId, toEmail, amount, idempotencyKey) {
       // Every check and the balances are read inside the store's one step, never before it.
       const outcome = await deps.transactions.transfer({
         fromUserId: userId,
         toEmail,
         amount,
         at: deps.clock.now(),
+        idempotencyKey,
       });
       if (outcome.result !== 'done') return { result: outcome.result };
       return {

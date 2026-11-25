@@ -4,7 +4,7 @@ import type { Express } from 'express';
 import request from 'supertest';
 import type { TransactionRepository } from '../../src/repositories/transactions';
 import type { User } from '../../src/repositories/users';
-import { bearer, tokenFor, TRANSACTIONS, TRANSFERS } from './auth';
+import { bearer, tokenFor, TRANSACTIONS, TRANSFERS, transferKey } from './auth';
 import { aUser, type Harness, SECOND } from './sign-up';
 
 export const DANA = 'dana@example.com';
@@ -40,9 +40,9 @@ export async function account(
   return { token: await tokenFor(h, user.id), user };
 }
 
-/** createTransfer with `token`'s user as the sender. */
-export const send = (target: Target, token: string, body: Record<string, unknown>) =>
-  request(target.app).post(TRANSFERS).set(bearer(token)).send(body);
+/** createTransfer with `token`'s user as the sender, under a new one-time key unless `key` is given. */
+export const send = (target: Target, token: string, body: Record<string, unknown>, key?: string) =>
+  request(target.app).post(TRANSFERS).set(bearer(token)).set(transferKey(key)).send(body);
 
 /** listTransactions for `token`'s user; `query` is appended as given, e.g. `?limit=5`. */
 export const list = (target: Target, token: string, query = '') =>
